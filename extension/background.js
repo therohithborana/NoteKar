@@ -1,7 +1,7 @@
 'use strict';
 
 // IMPORTANT: Replace this with your actual deployed app URL
-const APP_URL = "https://your-vercel-app-url.vercel.app/";
+const APP_URL = "https://note-kar.vercel.app/";
 
 // Function to open the notes app in a new tab, now only used as a fallback or for context menu
 function openNotesApp() {
