@@ -41,10 +41,12 @@
     function showPanelAndReload() {
         if (!iframe) {
             iframe = createPanel();
-        } else {
-            // Reload to fetch the new note from storage
-            iframe.src = APP_URL;
-        }
+        } 
+        
+        // Always set the src to ensure it reloads and fetches the new note
+        // This is important because the iframe might exist but be hidden
+        iframe.src = APP_URL;
+       
         isVisible = true;
         iframe.style.display = 'block';
     }
