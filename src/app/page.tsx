@@ -7,9 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Plus, Menu, FileText, Trash2, Settings, Search, ChevronsLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
-
 
 type Note = {
   id: number;
@@ -28,10 +25,8 @@ export default function Home() {
   const [activeNote, setActiveNote] = useState<Note | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [opacity, setOpacity] = useState(1);
 
-  // Load notes and opacity from localStorage on initial render
+  // Load notes from localStorage on initial render
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -49,14 +44,6 @@ export default function Home() {
           setNotes(initialNotes);
           setActiveNote(initialNotes[0]);
         }
-
-        const savedOpacity = localStorage.getItem('notes-opacity');
-        if (savedOpacity) {
-            setOpacity(parseFloat(savedOpacity));
-        }
-
-        // Set body background based on loaded opacity
-        document.body.style.backgroundColor = `rgba(3, 7, 18, ${parseFloat(savedOpacity) || 1})`;
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
@@ -71,14 +58,6 @@ export default function Home() {
       localStorage.setItem('notes-data', JSON.stringify(notes));
     }
   }, [notes]);
-
-  // Save opacity to localStorage whenever it changes
-  useEffect(() => {
-      if(typeof window !== 'undefined') {
-        localStorage.setItem('notes-opacity', String(opacity));
-        document.body.style.backgroundColor = `rgba(3, 7, 18, ${opacity})`;
-      }
-  }, [opacity]);
 
 
   // Effect to handle contextual notes from extension
@@ -132,7 +111,7 @@ export default function Home() {
   };
   
   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
-    <div className={cn("flex flex-col h-full bg-transparent text-foreground p-4 transition-all duration-300")}>
+    <div className={cn("flex flex-col h-full bg-background text-foreground p-4 transition-all duration-300")}>
         {!collapsed && (
           <div className="flex items-center justify-between mb-4">
               <h1 className="text-xl font-bold">Notes</h1>
@@ -180,22 +159,15 @@ export default function Home() {
                 ))}
             </nav>
         </div>
-      
-        <div className="mt-auto">
-             <Button variant="ghost" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => setIsSettingsOpen(true)}>
-                <Settings className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
-                {!collapsed && <span>Settings</span>}
-            </Button>
-        </div>
     </div>
   );
 
   return (
-    <div className="flex h-screen dark bg-transparent">
+    <div className="flex h-screen dark bg-background">
       {/* Desktop Sidebar */}
       <aside 
         className={cn(
-            "hidden md:flex flex-col border-r border-border/60 transition-all duration-300 ease-in-out bg-transparent", 
+            "hidden md:flex flex-col border-r border-border/60 transition-all duration-300 ease-in-out bg-background", 
             isDesktopSidebarCollapsed ? "w-20" : "w-64 lg:w-72"
         )}
       >
@@ -217,37 +189,8 @@ export default function Home() {
               <SidebarContent collapsed={false} />
             </SheetContent>
           </Sheet>
-      
-      {/* Settings Panel */}
-      <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <SheetContent side="right" className="w-80 bg-background">
-              <div className="p-4 h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-xl font-semibold">Settings</h2>
-                      <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(false)}>
-                          <X className="h-4 w-4" />
-                      </Button>
-                  </div>
-                  <div className="space-y-6">
-                      <div className="space-y-3">
-                          <Label htmlFor="transparency">Transparency</Label>
-                          <Slider
-                              id="transparency"
-                              min={0.1}
-                              max={1}
-                              step={0.05}
-                              value={[opacity]}
-                              onValueChange={(value) => setOpacity(value[0])}
-                          />
-                          <p className="text-sm text-muted-foreground text-center">{(opacity * 100).toFixed(0)}%</p>
-                      </div>
-                  </div>
-              </div>
-          </SheetContent>
-      </Sheet>
 
-
-      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden bg-transparent">
+      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden bg-background">
         <div className="flex items-center mb-4 md:hidden">
           <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
             <Menu className="h-6 w-6" />
