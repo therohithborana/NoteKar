@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Menu, FileText, Trash2, Search, ChevronsLeft, UploadCloud, DownloadCloud, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
@@ -68,6 +69,24 @@ export default function Home() {
   // Effect to handle contextual notes from extension
   useEffect(() => {
     if (typeof window !== 'undefined' && window.chrome && chrome.storage) {
+      const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+        if (changes.newNoteContent) {
+           const newNote: Note = {
+             id: Date.now(),
+             title: "New Note from page",
+             content: changes.newNoteContent.newValue,
+           };
+           setNotes(prevNotes => {
+             const updatedNotes = [newNote, ...prevNotes];
+             setActiveNote(newNote);
+             return updatedNotes;
+           });
+           chrome.storage.local.remove("newNoteContent");
+        }
+      };
+      chrome.storage.onChanged.addListener(handleStorageChange);
+  
+      // Initial check in case the value was set before the listener was added
       chrome.storage.local.get("newNoteContent", (data) => {
         if (data.newNoteContent) {
           const newNote: Note = {
@@ -83,6 +102,10 @@ export default function Home() {
           chrome.storage.local.remove("newNoteContent");
         }
       });
+
+      return () => {
+        chrome.storage.onChanged.removeListener(handleStorageChange);
+      }
     }
   }, []);
 
@@ -233,10 +256,19 @@ export default function Home() {
                 <UserButton afterSignOutUrl="/" />
              ) : (
                 <SignInButton mode="modal">
-                   <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")}>
-                     <LogIn className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
-                     {!collapsed && <span>Sign In</span>}
-                   </Button>
+                  <Dialog>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="sr-only">Sign In</DialogTitle>
+                        <DialogDescription className="sr-only">Sign in to your account to sync notes.</DialogDescription>
+                      </DialogHeader>
+                      <div/>
+                    </DialogContent>
+                    <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")}>
+                      <LogIn className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+                      {!collapsed && <span>Sign In</span>}
+                    </Button>
+                  </Dialog>
                 </SignInButton>
              )}
             {!collapsed && isSignedIn && (
@@ -279,6 +311,10 @@ export default function Home() {
       {/* Mobile Sidebar */}
        <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
             <SheetContent side="left" className="p-0 w-72 md:hidden bg-background">
+              <SheetHeader>
+                <SheetTitle className="sr-only">Notes Sidebar</SheetTitle>
+                <SheetDescription className="sr-only">A list of your notes and settings.</SheetDescription>
+              </SheetHeader>
               <SidebarContent collapsed={false} />
             </SheetContent>
           </Sheet>

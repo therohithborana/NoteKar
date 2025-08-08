@@ -3,10 +3,13 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
 const getDriveClient = async (userId: string) => {
-  // First, try to get the token using the new recommended way for external providers
   const clerkUser = await clerkClient.users.getUser(userId);
   const googleAccount = clerkUser.externalAccounts.find(acc => acc.provider === 'oauth_google');
   
+  if (!googleAccount) {
+    throw new Error('Google account not found. Please sign in with Google to use Drive Sync.');
+  }
+
   if (googleAccount && googleAccount.accessToken) {
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: googleAccount.accessToken });
@@ -59,8 +62,8 @@ export async function GET() {
 
   } catch (error: any) {
     console.error('Error refreshing from drive:', error);
-    if (error.message.includes('token') || error.message.includes('authenticate')) {
-       return NextResponse.json({ error: 'Authentication failed. Please sign out, sign back in, and ensure you grant Google Drive access.' }, { status: 401 });
+    if (error.message.includes('token') || error.message.includes('authenticate') || error.message.includes('Google account not found')) {
+       return NextResponse.json({ error: 'Authentication failed. Please sign out, sign back in with Google, and ensure you grant Google Drive access.' }, { status: 401 });
     }
     return NextResponse.json({ error: 'Failed to refresh from Google Drive.' }, { status: 500 });
   }
