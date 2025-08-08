@@ -5,20 +5,29 @@
   "description": "A Notion-themed notes app that can be used as a browser extension.",
   "permissions": [
     "contextMenus",
-    "storage"
+    "storage",
+    "activeTab",
+    "scripting"
   ],
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
   "action": {
-    "default_popup": "popup.html"
+    "default_title": "Toggle Notes"
   },
   "commands": {
-    "open-new-note": {
+    "toggle-notes": {
       "suggested_key": {
         "default": "Alt+Shift+N"
       },
-      "description": "Open a new note"
+      "description": "Toggle the notes panel"
     }
   }
 }
