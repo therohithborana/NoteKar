@@ -1,12 +1,12 @@
 
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Settings, Search, ChevronsLeft } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Settings, Search, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -24,10 +24,38 @@ const initialNotes: Note[] = [
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
-  const [activeNote, setActiveNote] = useState<Note | null>(notes[0] || null);
+  const [activeNote, setActiveNote] = useState<Note | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
 
+  // Effect to handle contextual and new notes from extension
+  useEffect(() => {
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.get("newNoteContent", (data) => {
+        if (data.newNoteContent) {
+          const newNote: Note = {
+            id: Date.now(),
+            title: "New Note from page",
+            content: data.newNoteContent,
+          };
+          setNotes(prevNotes => [newNote, ...prevNotes]);
+          setActiveNote(newNote);
+          // Clear the content from storage so it's not used again
+          chrome.storage.local.remove("newNoteContent");
+        } else {
+           // Default to first note if no new content
+           if (notes.length > 0 && !activeNote) {
+            setActiveNote(notes[0]);
+           }
+        }
+      });
+    } else {
+        // Fallback for non-extension environment
+        if (notes.length > 0 && !activeNote) {
+            setActiveNote(notes[0]);
+        }
+    }
+  }, []); // Run once on component mount
 
   const createNewNote = () => {
     const newNote: Note = {
@@ -59,27 +87,25 @@ export default function Home() {
   };
   
   const SidebarContent = () => (
-    <div className={cn("flex flex-col h-full bg-background text-foreground p-4", {
-      "hidden": isDesktopSidebarCollapsed
-    })}>
-        <div className="flex items-center justify-between mb-4">
+    <div className={cn("flex flex-col h-full bg-background text-foreground p-4 transition-all duration-300")}>
+        <div className={cn("flex items-center justify-between mb-4", isDesktopSidebarCollapsed && "hidden")}>
             <h1 className="text-xl font-bold">Notes</h1>
-            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setIsDesktopSidebarCollapsed(true)}>
+            <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
                 <ChevronsLeft className="h-4 w-4"/>
             </Button>
         </div>
 
-        <div className="relative mb-4">
+        <div className={cn("relative mb-4", isDesktopSidebarCollapsed && "hidden")}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search..." className="pl-9 bg-secondary/30" />
         </div>
 
-        <Button variant="outline" className="w-full justify-start mb-4" onClick={createNewNote}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Note
+        <Button variant="outline" className={cn("w-full justify-start mb-4", isDesktopSidebarCollapsed && "justify-center")} onClick={createNewNote}>
+            <Plus className={cn("mr-2 h-4 w-4", isDesktopSidebarCollapsed && "mr-0")} />
+            <span className={cn(isDesktopSidebarCollapsed && "hidden")}>New Note</span>
         </Button>
       
-        <div className="flex-1 overflow-y-auto">
+        <div className={cn("flex-1 overflow-y-auto", isDesktopSidebarCollapsed && "overflow-y-hidden")}>
             <nav className="flex flex-col gap-1">
                 {notes.map(note => (
                     <div key={note.id} className="group flex items-center">
@@ -93,10 +119,10 @@ export default function Home() {
                                 }
                             }}
                         >
-                            <FileText className="mr-2 h-4 w-4" />
-                            <span className="truncate flex-1 text-left">{note.title}</span>
+                            <FileText className={cn("mr-2 h-4 w-4", isDesktopSidebarCollapsed && "mr-0")} />
+                            <span className={cn("truncate flex-1 text-left", isDesktopSidebarCollapsed && "hidden")}>{note.title}</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => deleteNote(note.id)}>
+                         <Button variant="ghost" size="icon" className={cn("opacity-0 group-hover:opacity-100", isDesktopSidebarCollapsed && "hidden")} onClick={() => deleteNote(note.id)}>
                             <Trash2 className="h-4 w-4"/>
                         </Button>
                     </div>
@@ -105,9 +131,9 @@ export default function Home() {
         </div>
       
         <div className="mt-auto">
-             <Button variant="ghost" className="w-full justify-start">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
+             <Button variant="ghost" className={cn("w-full justify-start", isDesktopSidebarCollapsed && "justify-center")}>
+                <Settings className={cn("mr-2 h-4 w-4", isDesktopSidebarCollapsed && "mr-0")} />
+                <span className={cn(isDesktopSidebarCollapsed && "hidden")}>Settings</span>
             </Button>
         </div>
     </div>
@@ -115,33 +141,30 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-background dark">
+      {/* Desktop Sidebar */}
       <aside 
         className={cn(
             "hidden md:block border-r border-border/60 transition-all duration-300 ease-in-out", 
-            isDesktopSidebarCollapsed ? "w-16" : "w-64 lg:w-72"
+            isDesktopSidebarCollapsed ? "w-20" : "w-64 lg:w-72"
         )}
       >
         {isDesktopSidebarCollapsed ? (
              <div className="flex flex-col items-center py-4">
-                <Button variant="outline" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)}>
-                    <Menu className="h-6 w-6" />
+                <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)}>
+                    <ChevronsRight className="h-5 w-5" />
                 </Button>
+                <div className="mt-4 w-full">
+                  <SidebarContent />
+                </div>
              </div>
         ) : (
             <SidebarContent />
         )}
       </aside>
 
-      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden">
-        <div className="flex items-center mb-4 md:hidden">
-          {/* Mobile sidebar toggle */}
-          <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
+      {/* Mobile Sidebar */}
+       <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+            <SheetContent side="left" className="p-0 w-72 md:hidden">
                 <div className="flex flex-col h-full bg-background text-foreground p-4">
                     <div className="flex items-center justify-between mb-4">
                         <h1 className="text-xl font-bold">Notes</h1>
@@ -166,9 +189,7 @@ export default function Home() {
                                         className="w-full justify-start"
                                         onClick={() => {
                                             setActiveNote(note);
-                                            if (isMobileSidebarOpen) {
-                                                setIsMobileSidebarOpen(false);
-                                            }
+                                            setIsMobileSidebarOpen(false);
                                         }}
                                     >
                                         <FileText className="mr-2 h-4 w-4" />
@@ -192,6 +213,11 @@ export default function Home() {
             </SheetContent>
           </Sheet>
 
+      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden">
+        <div className="flex items-center mb-4 md:hidden">
+          <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
+            <Menu className="h-6 w-6" />
+          </Button>
           <h1 className="text-xl font-bold ml-4">Notes</h1>
         </div>
 
