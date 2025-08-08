@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Settings, Search } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Settings, Search, ChevronsLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 
 type Note = {
   id: number;
@@ -23,7 +25,9 @@ const initialNotes: Note[] = [
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [activeNote, setActiveNote] = useState<Note | null>(notes[0] || null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+
 
   const createNewNote = () => {
     const newNote: Note = {
@@ -33,8 +37,8 @@ export default function Home() {
     };
     setNotes([newNote, ...notes]);
     setActiveNote(newNote);
-    if (isSidebarOpen) {
-        setIsSidebarOpen(false);
+    if (isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
     }
   };
 
@@ -58,6 +62,9 @@ export default function Home() {
     <div className="flex flex-col h-full bg-background text-foreground p-4">
         <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold">Notes</h1>
+            <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setIsDesktopSidebarCollapsed(true)}>
+                <ChevronsLeft className="h-4 w-4"/>
+            </Button>
         </div>
 
         <div className="relative mb-4">
@@ -79,8 +86,8 @@ export default function Home() {
                             className="w-full justify-start"
                             onClick={() => {
                                 setActiveNote(note);
-                                if (isSidebarOpen) {
-                                    setIsSidebarOpen(false);
+                                if (isMobileSidebarOpen) {
+                                    setIsMobileSidebarOpen(false);
                                 }
                             }}
                         >
@@ -106,15 +113,21 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-background dark">
-      <div className="hidden md:flex md:w-64 lg:w-72 border-r border-border/60">
+      <aside 
+        className={cn(
+            "hidden md:flex flex-col border-r border-border/60 transition-all duration-300 ease-in-out", 
+            isDesktopSidebarCollapsed ? "w-0" : "w-64 lg:w-72"
+        )}
+      >
         <SidebarContent />
-      </div>
+      </aside>
 
       <main className="flex-1 flex flex-col p-4 md:p-8">
-        <div className="flex items-center mb-4 md:hidden">
-          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+        <div className="flex items-center mb-4">
+          {/* Mobile sidebar toggle */}
+          <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" className="md:hidden">
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
@@ -122,6 +135,14 @@ export default function Home() {
               <SidebarContent />
             </SheetContent>
           </Sheet>
+
+          {/* Desktop sidebar toggle */}
+          {isDesktopSidebarCollapsed && (
+            <Button variant="outline" size="icon" className="hidden md:flex" onClick={() => setIsDesktopSidebarCollapsed(false)}>
+              <Menu className="h-6 w-6" />
+            </Button>
+          )}
+
           <h1 className="text-xl font-bold ml-4">Notes</h1>
         </div>
 
