@@ -1,11 +1,19 @@
+
 'use strict';
 
 const APP_URL = "http://localhost:9002/";
 
 // Toggle the notes panel visibility
 function togglePanel(tab) {
-  if (tab && tab.id) {
-    chrome.tabs.sendMessage(tab.id, { action: "toggle" });
+  // Prevent running on unsupported pages, like chrome://extensions
+  if (tab.url?.startsWith("chrome://")) return;
+
+  try {
+    if (tab && tab.id) {
+        chrome.tabs.sendMessage(tab.id, { action: "toggle" });
+    }
+  } catch (e) {
+    console.error("Could not send message to content script:", e);
   }
 }
 
@@ -31,6 +39,9 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Listener for context menu click
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+   // Prevent running on unsupported pages
+  if (tab.url?.startsWith("chrome://")) return;
+
   if (info.menuItemId === "addNote" && info.selectionText) {
     // Save the selected text to storage
     chrome.storage.local.set({ newNoteContent: info.selectionText }, () => {
