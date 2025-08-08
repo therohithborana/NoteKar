@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Glass Pane Notes",
+  "version": "1.0",
+  "description": "A Notion-themed notes app that can be used as a browser extension.",
+  "permissions": [
+    "contextMenus",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "commands": {
+    "open-new-note": {
+      "suggested_key": {
+        "default": "Alt+Shift+N"
+      },
+      "description": "Open a new note"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
