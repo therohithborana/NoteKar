@@ -54,6 +54,9 @@ export default function Home() {
         if (savedOpacity) {
             setOpacity(parseFloat(savedOpacity));
         }
+
+        // Set body background based on loaded opacity
+        document.body.style.backgroundColor = `rgba(3, 7, 18, ${parseFloat(savedOpacity) || 1})`;
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
@@ -73,6 +76,7 @@ export default function Home() {
   useEffect(() => {
       if(typeof window !== 'undefined') {
         localStorage.setItem('notes-opacity', String(opacity));
+        document.body.style.backgroundColor = `rgba(3, 7, 18, ${opacity})`;
       }
   }, [opacity]);
 
@@ -187,7 +191,7 @@ export default function Home() {
   );
 
   return (
-    <div className="flex h-screen dark transition-opacity duration-300" style={{ backgroundColor: `rgba(3, 7, 18, ${opacity})` }}>
+    <div className="flex h-screen dark bg-transparent">
       {/* Desktop Sidebar */}
       <aside 
         className={cn(

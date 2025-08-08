@@ -1,28 +1,31 @@
 'use strict';
 
-// IMPORTANT: Replace this with your actual deployed app URL
 const APP_URL = "https://note-kar.vercel.app/";
 
-// Function to open the notes app in a new tab, now only used as a fallback or for context menu
-function openNotesApp() {
-  chrome.tabs.create({ url: APP_URL });
+function openNotesWindow() {
+  chrome.windows.create({
+    url: APP_URL,
+    type: 'popup',
+    width: 400,
+    height: 600
+  });
 }
+
+// Handle the action click (clicking the extension icon)
+chrome.action.onClicked.addListener(openNotesWindow);
+
+// Handle the command (hotkey)
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "toggle-notes") {
+    openNotesWindow();
+  }
+});
 
 // Function to add a note from selected text
 async function addNoteFromSelection(selectionText) {
-    // Store the selected text in local storage for the app to pick up
     await chrome.storage.local.set({ newNoteContent: selectionText });
-    openNotesApp();
+    openNotesWindow();
 }
-
-// The action.onClicked is now handled by the popup, so this is not strictly needed
-// but can be kept for the command.
-chrome.commands.onCommand.addListener((command, tab) => {
-  if (command === "toggle-notes") {
-    // This command will open the full page, which is a good complement to the popup
-    openNotesApp();
-  }
-});
 
 // Context Menu Creation
 chrome.runtime.onInstalled.addListener(() => {
