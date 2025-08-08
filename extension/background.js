@@ -4,7 +4,11 @@ const APP_URL = "https://note-kar.vercel.app/";
 let notesWindowId = null;
 
 async function toggleNotesWindow() {
-  const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  // Get screen dimensions to position the window on the right
+  const screenInfo = await new Promise(resolve => chrome.system.display.getInfo(resolve));
+  const primaryDisplay = screenInfo.find(d => d.isPrimary) || screenInfo[0];
+  const screenWidth = primaryDisplay.workArea.width;
+  const windowWidth = 400;
 
   // If the window exists, close it and clear the ID
   if (notesWindowId !== null) {
@@ -18,22 +22,25 @@ async function toggleNotesWindow() {
     }
   }
 
-  // If no window is open, create a new one
+  // If no window is open, create a new one positioned on the right
   const window = await chrome.windows.create({
     url: APP_URL,
     type: 'popup',
-    width: 400,
-    height: 600
+    width: windowWidth,
+    height: 600,
+    left: screenWidth - windowWidth,
+    top: 0
   });
   notesWindowId = window.id;
 
   // When the popup is closed by the user, reset our window ID
-  chrome.windows.onRemoved.addListener(function listener(windowId) {
+  const listener = (windowId) => {
     if (windowId === notesWindowId) {
       notesWindowId = null;
       chrome.windows.onRemoved.removeListener(listener); // Clean up the listener
     }
-  });
+  };
+  chrome.windows.onRemoved.addListener(listener);
 }
 
 // Handle the action click (clicking the extension icon)
