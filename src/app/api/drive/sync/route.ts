@@ -3,19 +3,21 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
 const getDriveClient = async (userId: string) => {
-  const { getToken } = auth();
-  const token = await getToken({ template: 'gdrive' });
-
-  if (!token) {
-    // Fallback for getting the token manually if template fails
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const googleAccount = clerkUser.externalAccounts.find(acc => acc.provider === 'oauth_google');
-    if (!googleAccount || !googleAccount.accessToken) {
-      throw new Error('Google access token not found.');
-    }
+  // First, try to get the token using the new recommended way for external providers
+  const clerkUser = await clerkClient.users.getUser(userId);
+  const googleAccount = clerkUser.externalAccounts.find(acc => acc.provider === 'oauth_google');
+  
+  if (googleAccount && googleAccount.accessToken) {
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: googleAccount.accessToken });
     return google.drive({ version: 'v3', auth: oauth2Client });
+  }
+
+  // Fallback to getToken if the direct access token isn't available
+  const { getToken } = auth();
+  const token = await getToken({ template: 'gdrive' }); // This might be null if not configured
+  if (!token) {
+    throw new Error('Google access token not found. Please re-authenticate.');
   }
 
   const oauth2Client = new google.auth.OAuth2();
@@ -77,8 +79,8 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error syncing to drive:', error);
     // Check if it's an auth error from Clerk/Google
-    if (error.message.includes('token')) {
-       return NextResponse.json({ error: 'Authentication failed. Please re-login and grant Google Drive access.' }, { status: 401 });
+    if (error.message.includes('token') || error.message.includes('authenticate')) {
+       return NextResponse.json({ error: 'Authentication failed. Please sign out, sign back in, and ensure you grant Google Drive access.' }, { status: 401 });
     }
     return NextResponse.json({ error: 'Failed to sync to Google Drive.' }, { status: 500 });
   }
