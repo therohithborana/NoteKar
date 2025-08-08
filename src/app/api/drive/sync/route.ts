@@ -1,6 +1,7 @@
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 const getDriveClient = async (userId: string) => {
   // First, try to get the token using the new recommended way for external providers
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
 
     const fileName = 'notes.json';
     const fileContent = JSON.stringify(notes);
+    const readableFileContent = Readable.from(fileContent);
 
     // Check if the file already exists
     const res = await drive.files.list({
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
         fileId: file.id,
         media: {
           mimeType: 'application/json',
-          body: fileContent,
+          body: readableFileContent,
         },
       });
       return NextResponse.json({ success: true, message: 'File updated.' });
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
         },
         media: {
           mimeType: 'application/json',
-          body: fileContent,
+          body: readableFileContent,
         },
       });
       return NextResponse.json({ success: true, message: 'File created.' });
