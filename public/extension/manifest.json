@@ -1,0 +1,28 @@
+
+{
+  "manifest_version": 3,
+  "name": "Glass Pane Notes",
+  "version": "1.0",
+  "description": "A draggable, resizable, semi-transparent notes panel overlay on any webpage.",
+  "permissions": ["activeTab", "scripting", "commands"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Toggle Glass Pane Notes"
+  },
+  "commands": {
+    "toggle-notes": {
+      "suggested_key": {
+        "default": "Alt+N"
+      },
+      "description": "Toggle Notes Panel"
+    }
+  },
+   "web_accessible_resources": [
+    {
+      "resources": ["styles.css", "db.js", "content.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
