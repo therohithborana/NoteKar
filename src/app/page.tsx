@@ -28,8 +28,8 @@ const features = [
 
 const installSteps = [
     {
-        step: "1. Download the Extension",
-        description: "Click the button above to get the extension files. Since this is a demonstration, you'll work with the 'public/extension' folder in this project's directory.",
+        step: "1. Get the Extension Files",
+        description: "The extension files have been added to the 'public/extension' folder in this project. There's no need to download anything separately.",
     },
     {
         step: "2. Open Chrome Extensions",
@@ -62,9 +62,11 @@ export default function Home() {
               <p className="text-lg text-foreground/80 md:text-xl">
                 Your thoughts, captured seamlessly. A floating, semi-transparent notes panel for every webpage.
               </p>
-              <Button size="lg" className="font-semibold">
-                <Download className="mr-2 h-5 w-5" />
-                Get Extension Files
+              <Button size="lg" className="font-semibold" asChild>
+                <a href="#installation">
+                    <Download className="mr-2 h-5 w-5" />
+                    Installation Guide
+                </a>
               </Button>
             </div>
           </div>
