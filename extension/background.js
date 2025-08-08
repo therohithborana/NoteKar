@@ -1,64 +1,30 @@
-
 'use strict';
 
-async function getCurrentTab() {
-  let queryOptions = { active: true, currentWindow: true };
-  let [tab] = await chrome.tabs.query(queryOptions);
-  return tab;
+const APP_URL = "http://localhost:9002/";
+
+// Function to open the notes app in a new tab
+function openNotesApp() {
+  chrome.tabs.create({ url: APP_URL });
 }
 
-// Injects and executes the content script to toggle the panel
-async function togglePanel(tab) {
-  if (!tab || !tab.id || tab.url?.startsWith("chrome://")) return;
-
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['content.js']
-    });
-    await chrome.scripting.insertCSS({
-        target: { tabId: tab.id },
-        files: ['content.css']
-    });
-    await chrome.tabs.sendMessage(tab.id, { action: "toggle" });
-  } catch (e) {
-    console.error("Failed to toggle panel:", e);
-  }
+// Function to add a note from selected text
+async function addNoteFromSelection(selectionText) {
+    // Store the selected text in local storage for the app to pick up
+    await chrome.storage.local.set({ newNoteContent: selectionText });
+    openNotesApp();
 }
-
-// Injects and executes the content script to add a note
-async function addNoteAndShowPanel(tab, noteContent) {
-    if (!tab || !tab.id || tab.url?.startsWith("chrome://")) return;
-
-    try {
-        await chrome.storage.local.set({ newNoteContent: noteContent });
-        await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['content.js']
-        });
-        await chrome.scripting.insertCSS({
-            target: { tabId: tab.id },
-            files: ['content.css']
-        });
-        await chrome.tabs.sendMessage(tab.id, { action: "addNote" });
-    } catch(e) {
-        console.error("Failed to add note:", e);
-    }
-}
-
 
 // Listener for the extension icon click
-chrome.action.onClicked.addListener(async (tab) => {
-    togglePanel(tab);
+chrome.action.onClicked.addListener((tab) => {
+    openNotesApp();
 });
 
 // Listener for keyboard shortcut
-chrome.commands.onCommand.addListener(async (command, tab) => {
+chrome.commands.onCommand.addListener((command, tab) => {
   if (command === "toggle-notes") {
-    togglePanel(tab);
+    openNotesApp();
   }
 });
-
 
 // Context Menu Creation
 chrome.runtime.onInstalled.addListener(() => {
@@ -70,8 +36,8 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Listener for context menu click
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "addNote" && info.selectionText) {
-    addNoteAndShowPanel(tab, info.selectionText);
+    addNoteFromSelection(info.selectionText);
   }
 });
