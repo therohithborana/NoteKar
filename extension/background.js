@@ -1,5 +1,7 @@
 'use strict';
 
+const APP_URL = "http://localhost:9002/";
+
 // Context Menu Creation
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -15,7 +17,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     // Save the selected text to storage
     chrome.storage.local.set({ newNoteContent: info.selectionText }, () => {
       // Open the main app in a new tab
-      chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
+      chrome.tabs.create({ url: APP_URL });
     });
   }
 });
@@ -25,7 +27,7 @@ chrome.commands.onCommand.addListener((command) => {
   if (command === "open-new-note") {
      // Clear any previous selection and open the main app
     chrome.storage.local.remove("newNoteContent", () => {
-        chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
+        chrome.tabs.create({ url: APP_URL });
     });
   }
 });
