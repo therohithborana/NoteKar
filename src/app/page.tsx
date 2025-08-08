@@ -187,7 +187,7 @@ export default function Home() {
   );
 
   return (
-    <div className="flex h-screen bg-background dark transition-opacity duration-300" style={{ opacity }}>
+    <div className="flex h-screen dark transition-opacity duration-300" style={{ backgroundColor: `rgba(3, 7, 18, ${opacity})` }}>
       {/* Desktop Sidebar */}
       <aside 
         className={cn(
