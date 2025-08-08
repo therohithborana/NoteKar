@@ -6,25 +6,12 @@ const getDriveClient = async (userId: string) => {
   const clerkUser = await clerkClient.users.getUser(userId);
   const googleAccount = clerkUser.externalAccounts.find(acc => acc.provider === 'oauth_google');
   
-  if (!googleAccount) {
-    throw new Error('Google account not found. Please sign in with Google to use Drive Sync.');
+  if (!googleAccount || !googleAccount.accessToken) {
+    throw new Error('Google access token not found. Please re-authenticate with Google.');
   }
 
-  if (googleAccount && googleAccount.accessToken) {
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: googleAccount.accessToken });
-    return google.drive({ version: 'v3', auth: oauth2Client });
-  }
-
-  // Fallback to getToken if the direct access token isn't available
-  const { getToken } = auth();
-  const token = await getToken({ template: 'gdrive' }); // This might be null if not configured
-  if (!token) {
-    throw new Error('Google access token not found. Please re-authenticate.');
-  }
-  
   const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: token });
+  oauth2Client.setCredentials({ access_token: googleAccount.accessToken });
   return google.drive({ version: 'v3', auth: oauth2Client });
 };
 
