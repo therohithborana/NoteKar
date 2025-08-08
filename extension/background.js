@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_URL = "http://localhost:9002/";
+const APP_URL = "https://6000-firebase-studio-1754676171861.cluster-ancjwrkgr5dvux4qug5rbzyc2y.cloudworkstations.dev/";
 
 // Function to open the notes app in a new tab
 function openNotesApp() {
