@@ -4,9 +4,12 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Settings, Search, ChevronsLeft, X } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Plus, Menu, FileText, Trash2, Search, ChevronsLeft, UploadCloud, DownloadCloud, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
+import { useToast } from "@/hooks/use-toast";
+
 
 type Note = {
   id: number;
@@ -15,9 +18,7 @@ type Note = {
 };
 
 const initialNotes: Note[] = [
-    { id: 1, title: "Meeting Notes", content: "Discussed Q3 roadmap and new feature prioritization." },
-    { id: 2, title: "Project Ideas", content: "Brainstormed ideas for the new marketing campaign." },
-    { id: 3, title: "Personal Todos", content: "1. Buy groceries\n2. Schedule dentist appointment\n3. Finish reading book" },
+    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it, create new notes, and sync to Google Drive after signing in." },
 ];
 
 export default function Home() {
@@ -25,6 +26,10 @@ export default function Home() {
   const [activeNote, setActiveNote] = useState<Note | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const { isSignedIn } = useUser();
+  const { toast } = useToast();
 
   // Load notes from localStorage on initial render
   useEffect(() => {
@@ -109,6 +114,56 @@ export default function Home() {
       setNotes(notes.map(n => n.id === activeNote.id ? updatedNote : n));
     }
   };
+
+  const syncToDrive = async () => {
+    if (!isSignedIn) {
+      toast({ title: "Please sign in to sync.", variant: "destructive" });
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/drive/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to sync to Google Drive');
+      }
+      toast({ title: "Successfully synced to Google Drive!" });
+    } catch (error: any) {
+      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const refreshFromDrive = async () => {
+    if (!isSignedIn) {
+      toast({ title: "Please sign in to refresh.", variant: "destructive" });
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/drive/refresh');
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to refresh from Google Drive');
+      }
+      if (result.notes) {
+        setNotes(result.notes);
+        setActiveNote(result.notes[0] || null);
+        toast({ title: "Successfully refreshed from Google Drive!" });
+      } else {
+        toast({ title: "No notes file found in Google Drive." });
+      }
+    } catch (error: any) {
+      toast({ title: "Refresh Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
   
   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
     <div className={cn("flex flex-col h-full bg-background text-foreground p-4 transition-all duration-300")}>
@@ -159,6 +214,38 @@ export default function Home() {
                 ))}
             </nav>
         </div>
+
+        <div className="mt-auto">
+          {isSignedIn && !collapsed && (
+             <div className="flex flex-col gap-2">
+                 <Button variant="ghost" className="justify-start" onClick={syncToDrive} disabled={isSyncing}>
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    <span>{isSyncing ? 'Syncing...' : 'Sync to Drive'}</span>
+                 </Button>
+                 <Button variant="ghost" className="justify-start" onClick={refreshFromDrive} disabled={isSyncing}>
+                    <DownloadCloud className="mr-2 h-4 w-4" />
+                    <span>{isSyncing ? 'Refreshing...' : 'Refresh from Drive'}</span>
+                 </Button>
+             </div>
+          )}
+           <div className="flex items-center mt-4">
+             {isSignedIn ? (
+                <UserButton afterSignOutUrl="/" />
+             ) : (
+                <SignInButton mode="modal">
+                   <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")}>
+                     <LogIn className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+                     {!collapsed && <span>Sign In</span>}
+                   </Button>
+                </SignInButton>
+             )}
+            {!collapsed && isSignedIn && (
+              <span className="text-sm ml-2 text-muted-foreground truncate">
+                Signed In
+              </span>
+            )}
+           </div>
+        </div>
     </div>
   );
 
@@ -172,11 +259,17 @@ export default function Home() {
         )}
       >
         {isDesktopSidebarCollapsed ? (
-             <div className="flex flex-col items-center py-4">
+             <div className="flex flex-col items-center py-4 h-full">
                 <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)} className="mb-4">
                     <Menu className="h-5 w-5" />
                 </Button>
-                <SidebarContent collapsed={true} />
+                <div className="mt-auto">
+                  {isSignedIn ? <UserButton /> : (
+                    <SignInButton mode="modal">
+                      <Button variant="ghost" size="icon"><LogIn/></Button>
+                    </SignInButton>
+                  )}
+                </div>
              </div>
         ) : (
             <SidebarContent collapsed={false} />
