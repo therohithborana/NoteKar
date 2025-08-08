@@ -1,120 +1,157 @@
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Download, VenetianMask, Layers, Zap, BookOpenCheck } from "lucide-react"
+"use client"
 
-const features = [
-  {
-    icon: <VenetianMask className="w-8 h-8 text-primary" />,
-    title: "Glassmorphism UI",
-    description: "A beautiful, semi-transparent interface that floats gracefully over any webpage.",
-  },
-  {
-    icon: <Layers className="w-8 h-8 text-primary" />,
-    title: "Draggable & Resizable",
-    description: "Move and resize your notes panel to the perfect spot on your screen.",
-  },
-  {
-    icon: <Zap className="w-8 h-8 text-primary" />,
-    title: "Instant & Persistent",
-    description: "Notes are auto-saved with every keystroke and stored per-domain, ready when you return.",
-  },
-  {
-    icon: <BookOpenCheck className="w-8 h-8 text-primary" />,
-    title: "Simple & Powerful",
-    description: "All the features you need, like hotkey toggling and transparency control, in a minimal package.",
-  },
-]
+import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Plus, Menu, FileText, Trash2, Settings, Search } from "lucide-react";
 
-const installSteps = [
-    {
-        step: "1. Get the Extension Files",
-        description: "The extension files have been added to the 'public/extension' folder in this project. There's no need to download anything separately.",
-    },
-    {
-        step: "2. Open Chrome Extensions",
-        description: "In your Chrome browser, navigate to chrome://extensions or find it under 'More Tools' in the main menu.",
-    },
-    {
-        step: "3. Enable Developer Mode",
-        description: "In the top-right corner of the extensions page, toggle the 'Developer mode' switch on.",
-    },
-    {
-        step: "4. Load Unpacked",
-        description: "Click the 'Load unpacked' button that appears. A file dialog will open. Navigate to and select the 'public/extension' folder from this project.",
-    },
-    {
-        step: "5. Ready to Go!",
-        description: "Glass Pane Notes will now appear in your extensions list! Use Alt+N or click the extension icon to start taking notes on any page.",
-    }
-]
+type Note = {
+  id: number;
+  title: string;
+  content: string;
+};
+
+const initialNotes: Note[] = [
+    { id: 1, title: "Meeting Notes", content: "Discussed Q3 roadmap and new feature prioritization." },
+    { id: 2, title: "Project Ideas", content: "Brainstormed ideas for the new marketing campaign." },
+    { id: 3, title: "Personal Todos", content: "1. Buy groceries\n2. Schedule dentist appointment\n3. Finish reading book" },
+];
 
 export default function Home() {
-  return (
-    <div className="flex flex-col min-h-screen">
-      <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-primary/10">
-          <div className="container px-4 md:px-6 text-center">
-            <div className="max-w-3xl mx-auto space-y-4">
-              <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl font-headline text-primary">
-                Glass Pane Notes
-              </h1>
-              <p className="text-lg text-foreground/80 md:text-xl">
-                Your thoughts, captured seamlessly. A floating, semi-transparent notes panel for every webpage.
-              </p>
-              <Button size="lg" className="font-semibold" asChild>
-                <a href="#installation">
-                    <Download className="mr-2 h-5 w-5" />
-                    Installation Guide
-                </a>
-              </Button>
-            </div>
-          </div>
-        </section>
+  const [notes, setNotes] = useState<Note[]>(initialNotes);
+  const [activeNote, setActiveNote] = useState<Note | null>(notes[0] || null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-        <section id="features" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              {features.map((feature, index) => (
-                <div key={index} className="flex flex-col items-center text-center space-y-3">
-                  {feature.icon}
-                  <h3 className="text-xl font-bold font-headline">{feature.title}</h3>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+  const createNewNote = () => {
+    const newNote: Note = {
+      id: Date.now(),
+      title: "Untitled Note",
+      content: "",
+    };
+    setNotes([newNote, ...notes]);
+    setActiveNote(newNote);
+    if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+    }
+  };
 
-        <section id="installation" className="w-full py-12 md:py-24 lg:py-32 bg-primary/10">
-          <div className="container px-4 md:px-6">
-            <div className="max-w-3xl mx-auto text-center">
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl font-headline">
-                    Installation Guide
-                </h2>
-                <p className="mt-4 text-muted-foreground md:text-xl">
-                    Follow these simple steps to install your new favorite note-taking tool.
-                </p>
-            </div>
-            <div className="mt-12 grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-              {installSteps.map((step, index) => (
-                  <Card key={index} className="bg-background/80 backdrop-blur-sm">
-                      <CardHeader>
-                          <CardTitle className="text-accent">{step.step}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                          <p className="text-foreground/90">{step.description}</p>
-                      </CardContent>
-                  </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-      </main>
+  const deleteNote = (id: number) => {
+    const newNotes = notes.filter(n => n.id !== id);
+    setNotes(newNotes);
+    if (activeNote?.id === id) {
+      setActiveNote(newNotes[0] || null);
+    }
+  };
 
-      <footer className="flex items-center justify-center w-full h-20 border-t">
-        <p className="text-muted-foreground">© {new Date().getFullYear()} Glass Pane Notes. All rights reserved.</p>
-      </footer>
+  const handleNoteChange = (field: 'title' | 'content', value: string) => {
+    if (activeNote) {
+      const updatedNote = { ...activeNote, [field]: value };
+      setActiveNote(updatedNote);
+      setNotes(notes.map(n => n.id === activeNote.id ? updatedNote : n));
+    }
+  };
+  
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full bg-secondary/30 text-foreground p-4">
+        <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold">Notes</h1>
+        </div>
+
+        <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search..." className="pl-9 bg-background" />
+        </div>
+
+        <Button variant="ghost" className="w-full justify-start mb-4" onClick={createNewNote}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Note
+        </Button>
+      
+        <div className="flex-1 overflow-y-auto">
+            <nav className="flex flex-col gap-1">
+                {notes.map(note => (
+                    <div key={note.id} className="group flex items-center">
+                        <Button
+                            variant={activeNote?.id === note.id ? "secondary" : "ghost"}
+                            className="w-full justify-start"
+                            onClick={() => {
+                                setActiveNote(note);
+                                if (isSidebarOpen) {
+                                    setIsSidebarOpen(false);
+                                }
+                            }}
+                        >
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span className="truncate flex-1 text-left">{note.title}</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => deleteNote(note.id)}>
+                            <Trash2 className="h-4 w-4"/>
+                        </Button>
+                    </div>
+                ))}
+            </nav>
+        </div>
+      
+        <div className="mt-auto">
+             <Button variant="ghost" className="w-full justify-start">
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+            </Button>
+        </div>
     </div>
-  )
+  );
+
+  return (
+    <div className="flex h-screen bg-background">
+      <div className="hidden md:flex md:w-64 lg:w-72">
+        <SidebarContent />
+      </div>
+
+      <main className="flex-1 flex flex-col p-4 md:p-8">
+        <div className="flex items-center mb-4 md:hidden">
+          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72">
+              <SidebarContent />
+            </SheetContent>
+          </Sheet>
+          <h1 className="text-xl font-bold ml-4">Notes</h1>
+        </div>
+
+        {activeNote ? (
+          <div className="flex-1 flex flex-col h-full">
+            <Input
+              value={activeNote.title}
+              onChange={(e) => handleNoteChange('title', e.target.value)}
+              placeholder="Untitled Note"
+              className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto"
+            />
+            <Textarea
+              value={activeNote.content}
+              onChange={(e) => handleNoteChange('content', e.target.value)}
+              placeholder="Start writing..."
+              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 resize-none"
+            />
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-semibold">No note selected</h2>
+            <p className="text-muted-foreground mb-4">Create a new note or select one from the sidebar.</p>
+            <Button onClick={createNewNote}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create a Note
+            </Button>
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }
