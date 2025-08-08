@@ -1,8 +1,9 @@
 'use strict';
 
-const APP_URL = "https://6000-firebase-studio-1754676171861.cluster-ancjwrkgr5dvux4qug5rbzyc2y.cloudworkstations.dev/";
+// IMPORTANT: Replace this with your actual deployed app URL
+const APP_URL = "https://your-vercel-app-url.vercel.app/";
 
-// Function to open the notes app in a new tab
+// Function to open the notes app in a new tab, now only used as a fallback or for context menu
 function openNotesApp() {
   chrome.tabs.create({ url: APP_URL });
 }
@@ -14,14 +15,11 @@ async function addNoteFromSelection(selectionText) {
     openNotesApp();
 }
 
-// Listener for the extension icon click
-chrome.action.onClicked.addListener((tab) => {
-    openNotesApp();
-});
-
-// Listener for keyboard shortcut
+// The action.onClicked is now handled by the popup, so this is not strictly needed
+// but can be kept for the command.
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === "toggle-notes") {
+    // This command will open the full page, which is a good complement to the popup
     openNotesApp();
   }
 });
