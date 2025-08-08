@@ -55,17 +55,17 @@ export default function Home() {
   };
   
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-secondary/30 text-foreground p-4">
+    <div className="flex flex-col h-full bg-background text-foreground p-4">
         <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold">Notes</h1>
         </div>
 
         <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search..." className="pl-9 bg-background" />
+            <Input placeholder="Search..." className="pl-9 bg-secondary/30" />
         </div>
 
-        <Button variant="ghost" className="w-full justify-start mb-4" onClick={createNewNote}>
+        <Button variant="outline" className="w-full justify-start mb-4" onClick={createNewNote}>
             <Plus className="mr-2 h-4 w-4" />
             New Note
         </Button>
@@ -105,8 +105,8 @@ export default function Home() {
   );
 
   return (
-    <div className="flex h-screen bg-background">
-      <div className="hidden md:flex md:w-64 lg:w-72">
+    <div className="flex h-screen bg-background dark">
+      <div className="hidden md:flex md:w-64 lg:w-72 border-r border-border/60">
         <SidebarContent />
       </div>
 
@@ -131,13 +131,13 @@ export default function Home() {
               value={activeNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
               placeholder="Untitled Note"
-              className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto"
+              className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
             <Textarea
               value={activeNote.content}
               onChange={(e) => handleNoteChange('content', e.target.value)}
               placeholder="Start writing..."
-              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 resize-none"
+              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 resize-none bg-transparent"
             />
           </div>
         ) : (
@@ -145,7 +145,7 @@ export default function Home() {
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold">No note selected</h2>
             <p className="text-muted-foreground mb-4">Create a new note or select one from the sidebar.</p>
-            <Button onClick={createNewNote}>
+            <Button onClick={createNewNote} variant="outline">
                 <Plus className="mr-2 h-4 w-4" />
                 Create a Note
             </Button>
