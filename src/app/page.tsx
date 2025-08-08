@@ -59,7 +59,9 @@ export default function Home() {
   };
   
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-background text-foreground p-4">
+    <div className={cn("flex flex-col h-full bg-background text-foreground p-4", {
+      "hidden": isDesktopSidebarCollapsed
+    })}>
         <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold">Notes</h1>
             <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setIsDesktopSidebarCollapsed(true)}>
@@ -115,33 +117,80 @@ export default function Home() {
     <div className="flex h-screen bg-background dark">
       <aside 
         className={cn(
-            "hidden md:flex flex-col border-r border-border/60 transition-all duration-300 ease-in-out", 
-            isDesktopSidebarCollapsed ? "w-0" : "w-64 lg:w-72"
+            "hidden md:block border-r border-border/60 transition-all duration-300 ease-in-out", 
+            isDesktopSidebarCollapsed ? "w-16" : "w-64 lg:w-72"
         )}
       >
-        <SidebarContent />
+        {isDesktopSidebarCollapsed ? (
+             <div className="flex flex-col items-center py-4">
+                <Button variant="outline" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)}>
+                    <Menu className="h-6 w-6" />
+                </Button>
+             </div>
+        ) : (
+            <SidebarContent />
+        )}
       </aside>
 
-      <main className="flex-1 flex flex-col p-4 md:p-8">
-        <div className="flex items-center mb-4">
+      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden">
+        <div className="flex items-center mb-4 md:hidden">
           {/* Mobile sidebar toggle */}
           <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="md:hidden">
+              <Button variant="outline" size="icon">
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72">
-              <SidebarContent />
+                <div className="flex flex-col h-full bg-background text-foreground p-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <h1 className="text-xl font-bold">Notes</h1>
+                    </div>
+
+                    <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search..." className="pl-9 bg-secondary/30" />
+                    </div>
+
+                    <Button variant="outline" className="w-full justify-start mb-4" onClick={createNewNote}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Note
+                    </Button>
+                
+                    <div className="flex-1 overflow-y-auto">
+                        <nav className="flex flex-col gap-1">
+                            {notes.map(note => (
+                                <div key={note.id} className="group flex items-center">
+                                    <Button
+                                        variant={activeNote?.id === note.id ? "secondary" : "ghost"}
+                                        className="w-full justify-start"
+                                        onClick={() => {
+                                            setActiveNote(note);
+                                            if (isMobileSidebarOpen) {
+                                                setIsMobileSidebarOpen(false);
+                                            }
+                                        }}
+                                    >
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        <span className="truncate flex-1 text-left">{note.title}</span>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => deleteNote(note.id)}>
+                                        <Trash2 className="h-4 w-4"/>
+                                    </Button>
+                                </div>
+                            ))}
+                        </nav>
+                    </div>
+                
+                    <div className="mt-auto">
+                        <Button variant="ghost" className="w-full justify-start">
+                            <Settings className="mr-2 h-4 w-4" />
+                            Settings
+                        </Button>
+                    </div>
+                </div>
             </SheetContent>
           </Sheet>
-
-          {/* Desktop sidebar toggle */}
-          {isDesktopSidebarCollapsed && (
-            <Button variant="outline" size="icon" className="hidden md:flex" onClick={() => setIsDesktopSidebarCollapsed(false)}>
-              <Menu className="h-6 w-6" />
-            </Button>
-          )}
 
           <h1 className="text-xl font-bold ml-4">Notes</h1>
         </div>
