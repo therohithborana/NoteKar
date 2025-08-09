@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Search, X } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Search, X, Brush } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
@@ -22,6 +22,8 @@ type Note = {
 const initialNotes: Note[] = [
     { id: 1, title: "Welcome!", content: "You can write notes here. Enjoy!", drawing: '{"shapes":[],"bindings":{},"assets":{}}' },
 ];
+const emptyDrawing = '{"shapes":[],"bindings":{},"assets":{}}';
+
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -51,7 +53,7 @@ export default function Home() {
                         id: note.id,
                         title: note.title,
                         content: note.content || '',
-                        drawing: note.drawing || '{"shapes":[],"bindings":{},"assets":{}}'
+                        drawing: note.drawing || emptyDrawing
                     };
                 });
             }
@@ -81,7 +83,7 @@ export default function Home() {
              id: Date.now(),
              title: "New Note from page",
              content: changes.newNoteContent.newValue,
-             drawing: '{"shapes":[],"bindings":{},"assets":{}}'
+             drawing: emptyDrawing
            };
            const updatedNotes = [newNote, ...notes];
            setNotes(updatedNotes);
@@ -99,7 +101,7 @@ export default function Home() {
             id: Date.now(),
             title: "New Note from page",
             content: data.newNoteContent,
-            drawing: '{"shapes":[],"bindings":{},"assets":{}}'
+            drawing: emptyDrawing
           };
           const updatedNotes = [newNote, ...notes];
           setNotes(updatedNotes);
@@ -126,7 +128,7 @@ export default function Home() {
       id: Date.now(),
       title: "Untitled Note",
       content: "",
-      drawing: '{"shapes":[],"bindings":{},"assets":{}}'
+      drawing: emptyDrawing
     };
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
@@ -161,6 +163,15 @@ export default function Home() {
         }, 500);
       }
   }
+
+  const addDrawingToNote = () => {
+    if (activeNote) {
+      // We can just set a non-empty but valid initial state to trigger the UI change.
+      // The TldrawCanvas component will handle the real initial state.
+      handleNoteChange('drawing', '{"shapes":[],"bindings":{},"assets":{}}');
+    }
+  };
+
   
   const SidebarHeader = () => (
     <div className="p-4 flex flex-col gap-4">
@@ -227,6 +238,16 @@ export default function Home() {
     </div>
   );
 
+  const isDrawingEmpty = (drawingData: string) => {
+    try {
+        if (!drawingData || drawingData === "{}") return true;
+        const data = JSON.parse(drawingData);
+        return !data.shapes || data.shapes.length === 0;
+    } catch (e) {
+        return true;
+    }
+  };
+
   return (
     <div className="flex h-screen dark bg-background">
       {/* Desktop Sidebar */}
@@ -292,11 +313,22 @@ export default function Home() {
               placeholder="Start writing..."
               className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4"
             />
-             <div className="relative flex-1 h-[400px] border rounded-lg overflow-hidden">
-                <TldrawCanvas
-                    initialData={activeNote.drawing}
-                    onSave={(data) => handleNoteChange('drawing', data)}
-                />
+             <div className="flex-1 min-h-[400px]">
+                {isDrawingEmpty(activeNote.drawing) ? (
+                    <div className="flex items-center justify-center h-full border-2 border-dashed rounded-lg">
+                        <Button variant="outline" onClick={addDrawingToNote}>
+                            <Brush className="mr-2 h-4 w-4" />
+                            Add Drawing
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="relative h-full border rounded-lg overflow-hidden">
+                       <TldrawCanvas
+                           initialData={activeNote.drawing}
+                           onSave={(data) => handleNoteChange('drawing', data)}
+                       />
+                   </div>
+                )}
             </div>
           </div>
         ) : (

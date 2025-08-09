@@ -19,7 +19,10 @@ function EditorInner({ initialData, onSave }: TldrawCanvasProps) {
         if (editor && initialData) {
             try {
                 const snapshot = JSON.parse(initialData);
-                editor.loadSnapshot(snapshot);
+                 // Prevent loading empty state over existing drawings if parent state updates
+                if (snapshot.shapes && snapshot.shapes.length > 0) {
+                    editor.loadSnapshot(snapshot);
+                }
             } catch (e) {
                 console.error("Failed to load drawing data", e);
             }
@@ -50,10 +53,9 @@ function EditorInner({ initialData, onSave }: TldrawCanvasProps) {
 export default function TldrawCanvas({ initialData, onSave }: TldrawCanvasProps) {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <Tldraw persistenceKey={`tldraw-note-${initialData}`}>
+      <Tldraw persistenceKey={`tldraw-note-${initialData}`} forceMobile={false} forceDarkMode={true}>
         <EditorInner initialData={initialData} onSave={onSave} />
       </Tldraw>
     </div>
   );
 }
-
