@@ -134,6 +134,16 @@ export default function Home() {
         } else if (e.key === 'm') {
           e.preventDefault();
           createNewNote('text');
+        } else if (e.key === 'c') {
+          e.preventDefault();
+          if (activeNote && activeNote.type === 'text') {
+            const newContent = activeNote.content === '' ? '- [ ] ' : activeNote.content + '\n- [ ] ';
+            handleNoteChange('content', newContent);
+            setTimeout(() => {
+                const lines = newContent.split('\n');
+                inputRefs.current[lines.length - 1]?.focus();
+            }, 0);
+          }
         }
       }
     };
@@ -142,7 +152,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [notes, activeNoteId]);
+  }, [notes, activeNoteId, activeNote]);
 
   const deleteNote = (id: number) => {
     const indexToDelete = notes.findIndex(n => n.id === id);
@@ -204,11 +214,9 @@ export default function Home() {
               const isTodo = currentLine.startsWith('- [ ]') || currentLine.startsWith('- [x]');
               const newLine = isTodo ? '- [ ] ' : '';
               
-              // Add new line after current line
               lines.splice(index + 1, 0, newLine);
               handleNoteChange('content', lines.join('\n'));
               
-              // Focus the new input
               setTimeout(() => {
                   inputRefs.current[index + 1]?.focus();
               }, 0);
@@ -222,7 +230,6 @@ export default function Home() {
               lines.splice(index, 1);
               handleNoteChange('content', lines.join('\n'));
               
-              // Focus previous input
               setTimeout(() => {
                   const prevInput = inputRefs.current[index - 1];
                   if (prevInput) {
@@ -488,7 +495,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
-
-    
