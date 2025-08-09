@@ -28,7 +28,7 @@ export default function Home() {
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
-  const [isClient, setIsClient] = useState(false)
+  const [isClient, setIsClient] = useState(false);
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   
@@ -287,7 +287,7 @@ saveNotes(updatedNotes);
           <h1 className="text-xl font-bold ml-4">Notes</h1>
         </div>
         
-        {activeNote ? (
+        {isClient && activeNote ? (
           <div className="flex-1 flex flex-col h-full overflow-y-auto">
             <Input
               value={activeNote.title}
@@ -303,7 +303,7 @@ saveNotes(updatedNotes);
                   className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
                 />
             ) : (
-                isClient && activeNote.drawing && (
+                activeNote.drawing && (
                     <div className="flex-1 w-full h-full relative">
                         <DrawingCanvas
                             initialData={activeNote.drawing}
