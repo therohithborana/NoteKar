@@ -1,8 +1,10 @@
 
 "use client"
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import dynamic from 'next/dynamic';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +19,7 @@ type Note = {
   title: string;
   type: 'text' | 'drawing';
   content: string;
-  drawing: string; 
+  drawing: string;
 };
 
 const initialNotes: Note[] = [
@@ -25,43 +27,47 @@ const initialNotes: Note[] = [
 ];
 const emptyDrawing = '{"shapes":[],"bindings":{},"assets":{}}';
 
-
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-  
+
   useEffect(() => {
     setIsClient(true);
-    // Load notes from localStorage on initial render
     try {
       const savedNotes = localStorage.getItem('notes-data');
       let notesToLoad: Note[] = initialNotes;
       if (savedNotes) {
           const parsedNotes = JSON.parse(savedNotes);
           if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
-              // Migration for old note formats
-              notesToLoad = parsedNotes.map(note => ({
+              notesToLoad = parsedNotes.map((note: any) => ({
                   id: note.id,
                   title: note.title,
-                  type: note.type || (note.drawing && !note.content ? 'drawing' : 'text'),
+                  type: note.type || 'text',
                   content: note.content || '',
                   drawing: note.drawing || (note.type === 'drawing' ? emptyDrawing : '')
               }));
           }
       }
       setNotes(notesToLoad);
-      if (notesToLoad.length > 0) {
-          setActiveNoteId(notesToLoad[0].id);
+
+      const lastActiveId = localStorage.getItem('lastActiveNoteId');
+      if (lastActiveId && notesToLoad.some(n => n.id === +lastActiveId)) {
+        setActiveNoteId(+lastActiveId);
+      } else if (notesToLoad.length > 0) {
+        setActiveNoteId(notesToLoad[0].id);
       } else {
         setActiveNoteId(null);
       }
     } catch (error) {
-        console.error("Failed to load or migrate data from localStorage", error);
+        console.error("Failed to load data from localStorage", error);
         setNotes(initialNotes);
          if (initialNotes.length > 0) {
           setActiveNoteId(initialNotes[0].id);
@@ -69,55 +75,53 @@ export default function Home() {
     }
   }, []);
 
-  const activeNote = notes.find(n => n.id === activeNoteId);
-
-  // Effect to handle contextual notes from extension
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.chrome && chrome.storage) {
-      const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-        if (changes.newNoteContent) {
-           const newNote: Note = {
-             id: Date.now(),
-             title: "New Note from page",
-             type: 'text',
-             content: changes.newNoteContent.newValue,
-             drawing: ''
-           };
-           const updatedNotes = [newNote, ...notes];
-           setNotes(updatedNotes);
-           setActiveNoteId(newNote.id);
-           saveNotes(updatedNotes);
-           chrome.storage.local.remove("newNoteContent");
-        }
-      };
-      chrome.storage.onChanged.addListener(handleStorageChange);
-  
-      chrome.storage.local.get("newNoteContent", (data) => {
-        if (data.newNoteContent) {
-          const newNote: Note = {
-            id: Date.now(),
-            title: "New Note from page",
-            type: 'text',
-            content: data.newNoteContent,
-            drawing: ''
-          };
-          const updatedNotes = [newNote, ...notes];
-          setNotes(updatedNotes);
-          setActiveNoteId(newNote.id);
-          saveNotes(updatedNotes);
-          chrome.storage.local.remove("newNoteContent");
-        }
-      });
-
-      return () => {
-        chrome.storage.onChanged.removeListener(handleStorageChange);
-      }
+    if (activeNoteId) {
+      localStorage.setItem('lastActiveNoteId', activeNoteId.toString());
     }
-  }, [notes]);
+  }, [activeNoteId]);
+  
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [isEditing]);
+  
+  useEffect(() => {
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.altKey) {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const currentIndex = notes.findIndex(n => n.id === activeNoteId);
+          if (currentIndex === -1) return;
 
-  const saveNotes = (updatedNotes: Note[]) => {
+          let nextIndex;
+          if (e.key === 'ArrowUp') {
+            nextIndex = currentIndex > 0 ? currentIndex - 1 : notes.length - 1;
+          } else {
+            nextIndex = currentIndex < notes.length - 1 ? currentIndex + 1 : 0;
+          }
+          setActiveNoteId(notes[nextIndex].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [notes, activeNoteId]);
+
+
+  const activeNote = notes.find(n => n.id === activeNoteId);
+  const saveNotes = (updatedNotes: Note[], idToUpdate?: number | null) => {
       if (typeof window !== 'undefined') {
           localStorage.setItem('notes-data', JSON.stringify(updatedNotes));
+          if (idToUpdate) {
+            localStorage.setItem('lastActiveNoteId', idToUpdate.toString());
+          }
       }
   };
 
@@ -132,7 +136,7 @@ export default function Home() {
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
     setActiveNoteId(newNote.id);
-    saveNotes(updatedNotes);
+    saveNotes(updatedNotes, newNote.id);
 
     if (isMobileSidebarOpen) {
         setIsMobileSidebarOpen(false);
@@ -142,13 +146,14 @@ export default function Home() {
   const deleteNote = (id: number) => {
     const newNotes = notes.filter(n => n.id !== id);
     setNotes(newNotes);
+    let newActiveId = null;
     if (activeNoteId === id) {
-      const newActiveId = newNotes[0]?.id || null;
+      newActiveId = newNotes[0]?.id || null;
       setActiveNoteId(newActiveId);
     }
-    saveNotes(newNotes);
+    saveNotes(newNotes, newActiveId);
   };
-  
+
   const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
       if (activeNote) {
         const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
@@ -158,11 +163,50 @@ export default function Home() {
             clearTimeout(debounceTimeout.current);
         }
         debounceTimeout.current = setTimeout(() => {
-            saveNotes(updatedNotes);
+            saveNotes(updatedNotes, activeNoteId);
         }, 500);
       }
   }
   
+  const handleContentKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.altKey && e.key === 'c') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      const newText = `${value.substring(0, lineStart)}- [ ] ${value.substring(lineStart)}`;
+      handleNoteChange('content', newText);
+      
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 6;
+      }, 0);
+    }
+    if(e.altKey && e.key === 'x') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const value = textarea.value;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      const lineEnd = value.indexOf('\n', lineStart);
+      const currentLine = value.substring(lineStart, lineEnd > -1 ? lineEnd : value.length);
+
+      let newLine = currentLine;
+      if (currentLine.trim().startsWith('- [ ]')) {
+        newLine = currentLine.replace('- [ ]', '- [x]');
+      } else if (currentLine.trim().startsWith('- [x]')) {
+        newLine = currentLine.replace('- [x]', '- [ ]');
+      } else {
+        return;
+      }
+      
+      const newText = value.substring(0, lineStart) + newLine + value.substring(lineEnd > -1 ? lineEnd : value.length);
+      handleNoteChange('content', newText);
+    }
+  };
+
+
   const SidebarHeader = () => (
     <div className="p-4 flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -198,7 +242,7 @@ export default function Home() {
               {!collapsed && <span>New Drawing</span>}
           </Button>
         </div>
-      
+
         <div className="flex-1 overflow-y-auto px-4 mt-4">
             <nav className="flex flex-col gap-1">
                 {notes.map(note => (
@@ -234,13 +278,51 @@ export default function Home() {
         </div>
     </div>
   );
+  
+    const MarkdownRenderer = ({ content, onCheckboxToggle }: { content: string, onCheckboxToggle: (lineIndex: number, checked: boolean) => void }) => {
+    return (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          input: ({ checked, ...props }) => {
+            const line = props.node?.position?.start.line;
+            if (line === undefined) return <input type="checkbox" {...props} />;
+            
+            return (
+              <input 
+                type="checkbox" 
+                checked={checked} 
+                onChange={(e) => onCheckboxToggle(line -1, e.target.checked)}
+                className="mx-2"
+              />
+            );
+          },
+          p: ({children}) => <p className="mb-2">{children}</p>
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    );
+  };
+  
+    const handleCheckboxToggle = (lineIndex: number, checked: boolean) => {
+    if (activeNote) {
+      const lines = activeNote.content.split('\n');
+      if (lines[lineIndex]) {
+        lines[lineIndex] = checked 
+          ? lines[lineIndex].replace('- [ ]', '- [x]')
+          : lines[lineIndex].replace('- [x]', '- [ ]');
+        handleNoteChange('content', lines.join('\n'));
+      }
+    }
+  };
 
   return (
     <div className="flex h-screen dark bg-background">
       {/* Desktop Sidebar */}
-      <aside 
+      <aside
         className={cn(
-            "hidden md:flex flex-col border-r border-border/60 transition-all duration-300 ease-in-out bg-background", 
+            "hidden md:flex flex-col border-r border-border/60 transition-all duration-300 ease-in-out bg-background",
             isDesktopSidebarCollapsed ? "w-20" : "w-72"
         )}
       >
@@ -298,12 +380,27 @@ export default function Home() {
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
             {activeNote.type === 'text' ? (
-                <Textarea
-                  value={activeNote.content || ''}
-                  onChange={(e) => handleNoteChange('content', e.target.value)}
-                  placeholder="Start writing..."
-                  className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4"
-                />
+                <div className="flex-1 text-base" onClick={() => setIsEditing(true)}>
+                {isEditing ? (
+                   <Textarea
+                     ref={textareaRef}
+                     value={activeNote.content || ''}
+                     onChange={(e) => {
+                       handleNoteChange('content', e.target.value);
+                       e.target.style.height = 'auto';
+                       e.target.style.height = `${e.target.scrollHeight}px`;
+                     }}
+                     onKeyDown={handleContentKeyDown}
+                     onBlur={() => setIsEditing(false)}
+                     placeholder="Start writing..."
+                     className="flex-1 w-full text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4 min-h-[200px]"
+                   />
+                ) : (
+                    <div className="prose prose-invert max-w-none">
+                      <MarkdownRenderer content={activeNote.content || 'Start writing...'} onCheckboxToggle={handleCheckboxToggle} />
+                    </div>
+                )}
+                </div>
             ) : (
                 <div className="flex-1 min-h-[400px] relative border rounded-lg overflow-hidden">
                    <TldrawCanvas
@@ -329,3 +426,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
