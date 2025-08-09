@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Menu, FileText, Trash2, Search, ChevronsLeft, UploadCloud, DownloadCloud, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
@@ -156,7 +155,10 @@ export default function Home() {
       }
       toast({ title: "Successfully synced to Google Drive!" });
     } catch (error: any) {
-      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
+       const description = error.message.includes('Authentication failed')
+        ? 'Authentication failed. Please sign out, sign back in with Google, and ensure you grant Google Drive access.'
+        : error.message;
+      toast({ title: "Sync Error", description, variant: "destructive" });
     } finally {
       setIsSyncing(false);
     }
@@ -182,7 +184,10 @@ export default function Home() {
         toast({ title: "No notes file found in Google Drive." });
       }
     } catch (error: any) {
-      toast({ title: "Refresh Error", description: error.message, variant: "destructive" });
+      const description = error.message.includes('Authentication failed')
+        ? 'Authentication failed. Please sign out, sign back in with Google, and ensure you grant Google Drive access.'
+        : error.message;
+      toast({ title: "Refresh Error", description, variant: "destructive" });
     } finally {
       setIsSyncing(false);
     }
