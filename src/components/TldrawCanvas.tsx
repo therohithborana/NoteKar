@@ -6,13 +6,14 @@ import '@tldraw/tldraw/tldraw.css';
 import { useEffect } from 'react';
 
 type TldrawCanvasProps = {
+  persistenceKey: string;
   initialData?: string;
   onSave: (data: string) => void;
 };
 
 // This is a new component that wraps the Tldraw editor
 // to handle loading and saving data.
-function EditorInner({ initialData, onSave }: TldrawCanvasProps) {
+function EditorInner({ initialData, onSave }: Pick<TldrawCanvasProps, 'initialData' | 'onSave'>) {
     const editor = useEditor();
 
     useEffect(() => {
@@ -31,18 +32,26 @@ function EditorInner({ initialData, onSave }: TldrawCanvasProps) {
 
     useEffect(() => {
         if (!editor) return;
+        
         const handleChange = () => {
             const snapshot = editor.getSnapshot();
             onSave(JSON.stringify(snapshot));
         };
+
         // Using a timeout to debounce the save function
-        const debouncedHandleChange = setTimeout(() => {
-            editor.on('change', handleChange);
-        }, 500);
+        let debounceTimer: NodeJS.Timeout;
+        const debouncedHandleChange = () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                handleChange();
+            }, 500); 
+        };
+
+        editor.on('change', debouncedHandleChange);
 
         return () => {
-            clearTimeout(debouncedHandleChange);
-            editor.off('change', handleChange);
+            clearTimeout(debounceTimer);
+            editor.off('change', debouncedHandleChange);
         };
     }, [editor, onSave]);
 
@@ -50,10 +59,10 @@ function EditorInner({ initialData, onSave }: TldrawCanvasProps) {
 }
 
 
-export default function TldrawCanvas({ initialData, onSave }: TldrawCanvasProps) {
+export default function TldrawCanvas({ persistenceKey, initialData, onSave }: TldrawCanvasProps) {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <Tldraw persistenceKey={`tldraw-note-${initialData}`} forceMobile={false} forceDarkMode={true}>
+      <Tldraw persistenceKey={persistenceKey} forceMobile={false} forceDarkMode={true}>
         <EditorInner initialData={initialData} onSave={onSave} />
       </Tldraw>
     </div>

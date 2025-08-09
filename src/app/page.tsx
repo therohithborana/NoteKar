@@ -172,6 +172,11 @@ export default function Home() {
     }
   };
 
+  const removeDrawingFromNote = () => {
+    if (activeNote) {
+      handleNoteChange('drawing', emptyDrawing);
+    }
+  };
   
   const SidebarHeader = () => (
     <div className="p-4 flex flex-col gap-4">
@@ -313,7 +318,7 @@ export default function Home() {
               placeholder="Start writing..."
               className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4"
             />
-             <div className="flex-1 min-h-[400px]">
+             <div className="flex-1 min-h-[400px] relative">
                 {isDrawingEmpty(activeNote.drawing) ? (
                     <div className="flex items-center justify-center h-full border-2 border-dashed rounded-lg">
                         <Button variant="outline" onClick={addDrawingToNote}>
@@ -323,7 +328,11 @@ export default function Home() {
                     </div>
                 ) : (
                     <div className="relative h-full border rounded-lg overflow-hidden">
+                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 bg-background/50 hover:bg-background/80" onClick={removeDrawingFromNote}>
+                           <Trash2 className="h-4 w-4"/>
+                       </Button>
                        <TldrawCanvas
+                           persistenceKey={`note-${activeNote.id}`}
                            initialData={activeNote.drawing}
                            onSave={(data) => handleNoteChange('drawing', data)}
                        />
