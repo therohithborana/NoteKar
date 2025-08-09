@@ -38,9 +38,6 @@ const searchPrompt = ai.definePrompt({
   input: {schema: SearchNotesInputSchema},
   output: {schema: SearchNotesOutputSchema},
   model: googleAI('gemini-2.0-flash-preview'),
-  config: {
-    model: googleAI('gemini-2.0-flash-preview'),
-  },
   prompt: `You are a semantic search engine for a notes application.
 You will be given a search query and a list of notes.
 Your task is to return the IDs of the notes that are most relevant to the search query.
