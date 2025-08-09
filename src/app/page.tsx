@@ -5,17 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Search, X } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Search, X, Brush } from "lucide-react";
 import { cn } from "@/lib/utils";
+import dynamic from 'next/dynamic';
+
+const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas'), { ssr: false });
 
 type Note = {
   id: number;
   title: string;
-  content: string;
+  content: string | null;
+  drawing: string | null;
+  type: 'text' | 'drawing';
 };
 
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it or create new notes." },
+    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it or create new notes.", drawing: null, type: 'text' },
 ];
 
 export default function Home() {
@@ -23,19 +28,31 @@ export default function Home() {
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
-  
+  const [isClient, setIsClient] = useState(false)
+
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
 
   // Load notes from localStorage on initial render
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
         const savedNotes = localStorage.getItem('notes-data');
-        let notesToLoad = initialNotes;
+        let notesToLoad: Note[] = initialNotes;
         if (savedNotes) {
             const parsedNotes = JSON.parse(savedNotes);
             if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
-                notesToLoad = parsedNotes;
+                // Quick migration for old note format
+                notesToLoad = parsedNotes.map(note => {
+                    if (typeof note.type === 'undefined') {
+                        return { ...note, type: 'text', drawing: null };
+                    }
+                    return note;
+                });
             }
         }
         setNotes(notesToLoad);
@@ -63,6 +80,8 @@ export default function Home() {
              id: Date.now(),
              title: "New Note from page",
              content: changes.newNoteContent.newValue,
+             drawing: null,
+             type: 'text',
            };
            const updatedNotes = [newNote, ...notes];
            setNotes(updatedNotes);
@@ -80,6 +99,8 @@ export default function Home() {
             id: Date.now(),
             title: "New Note from page",
             content: data.newNoteContent,
+            drawing: null,
+            type: 'text',
           };
           const updatedNotes = [newNote, ...notes];
           setNotes(updatedNotes);
@@ -101,11 +122,13 @@ saveNotes(updatedNotes);
       }
   };
 
-  const createNewNote = () => {
+  const createNewNote = (type: 'text' | 'drawing') => {
     const newNote: Note = {
       id: Date.now(),
-      title: "Untitled Note",
-      content: "",
+      title: type === 'text' ? "Untitled Note" : "New Drawing",
+      content: type === 'text' ? "" : null,
+      drawing: type === 'drawing' ? '{"elements":[]}' : null,
+      type: type,
     };
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
@@ -127,7 +150,7 @@ saveNotes(updatedNotes);
     saveNotes(newNotes);
   };
   
-  const handleNoteChange = (field: 'title' | 'content', value: string) => {
+  const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
       if (activeNote) {
         const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
@@ -166,14 +189,18 @@ saveNotes(updatedNotes);
           </div>
         )}
 
-        <div className="px-4">
-          <Button variant="outline" className={cn("w-full justify-start mb-4", collapsed && "justify-center")} onClick={createNewNote}>
+        <div className="px-4 flex flex-col gap-2">
+          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('text')}>
               <Plus className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
               {!collapsed && <span>New Note</span>}
           </Button>
+          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('drawing')}>
+              <Brush className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+              {!collapsed && <span>New Drawing</span>}
+          </Button>
         </div>
       
-        <div className="flex-1 overflow-y-auto px-4">
+        <div className="flex-1 overflow-y-auto px-4 mt-4">
             <nav className="flex flex-col gap-1">
                 {notes.map(note => (
                     <div key={note.id} className="group flex items-center">
@@ -187,7 +214,7 @@ saveNotes(updatedNotes);
                                 }
                             }}
                         >
-                            <FileText className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+                            {note.type === 'drawing' ? <Brush className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} /> : <FileText className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />}
                             {!collapsed && <span className="truncate flex-1 text-left">{note.title}</span>}
                         </Button>
                          {!collapsed && (
@@ -220,13 +247,16 @@ saveNotes(updatedNotes);
                 <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)} className="mb-4">
                     <Menu className="h-5 w-5" />
                 </Button>
-                 <Button variant="ghost" size="icon" onClick={createNewNote} className="mb-4">
+                 <Button variant="ghost" size="icon" onClick={() => createNewNote('text')} className="mb-2">
                     <Plus className="h-5 w-5" />
+                </Button>
+                 <Button variant="ghost" size="icon" onClick={() => createNewNote('drawing')} className="mb-4">
+                    <Brush className="h-5 w-5" />
                 </Button>
                 <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2">
                    {notes.slice(0, 10).map(note => (
                        <Button key={note.id} variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" onClick={() => setActiveNoteId(note.id)}>
-                           <FileText className="h-5 w-5"/>
+                           {note.type === 'drawing' ? <Brush className="h-5 w-5"/> : <FileText className="h-5 w-5"/>}
                        </Button>
                    ))}
                 </div>
@@ -262,22 +292,33 @@ saveNotes(updatedNotes);
             <Input
               value={activeNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
-              placeholder="Untitled Note"
+              placeholder={activeNote.type === 'text' ? "Untitled Note" : "New Drawing"}
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            <Textarea
-              value={activeNote.content}
-              onChange={(e) => handleNoteChange('content', e.target.value)}
-              placeholder="Start writing..."
-              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
-            />
+            {activeNote.type === 'text' ? (
+                <Textarea
+                  value={activeNote.content || ''}
+                  onChange={(e) => handleNoteChange('content', e.target.value)}
+                  placeholder="Start writing..."
+                  className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
+                />
+            ) : (
+                isClient && activeNote.drawing && (
+                    <div className="flex-1 w-full h-full relative">
+                        <DrawingCanvas
+                            initialData={activeNote.drawing}
+                            onChange={(data) => handleNoteChange('drawing', data)}
+                        />
+                    </div>
+                )
+            )}
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold">No note selected</h2>
             <p className="text-muted-foreground mb-4">Create a new note or select one from the sidebar.</p>
-            <Button onClick={createNewNote} variant="outline">
+            <Button onClick={() => createNewNote('text')} variant="outline">
                 <Plus className="mr-2 h-4 w-4" />
                 Create a Note
             </Button>
