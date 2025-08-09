@@ -19,18 +19,18 @@ const NoteSchema = z.object({
   type: z.enum(['text', 'drawing']),
 });
 
-export const SearchNotesInputSchema = z.object({
+const SearchNotesInputSchema = z.object({
   query: z.string(),
   notes: z.array(NoteSchema),
 });
 
-export type SearchNotesInput = z.infer<typeof SearchNotesInputSchema>;
+type SearchNotesInput = z.infer<typeof SearchNotesInputSchema>;
 
-export const SearchNotesOutputSchema = z.object({
+const SearchNotesOutputSchema = z.object({
   noteIds: z.array(z.number()),
 });
 
-export type SearchNotesOutput = z.infer<typeof SearchNotesOutputSchema>;
+type SearchNotesOutput = z.infer<typeof SearchNotesOutputSchema>;
 
 const searchPrompt = ai.definePrompt({
   name: 'searchNotesPrompt',

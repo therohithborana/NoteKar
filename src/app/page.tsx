@@ -24,6 +24,16 @@ type Note = {
   drawing: string;
 };
 
+type SearchNotesInput = {
+    query: string;
+    notes: Note[];
+}
+
+type SearchNotesOutput = {
+    noteIds: number[];
+}
+
+
 const emptyDrawing = '{"shapes":[],"bindings":{},"assets":{}}';
 
 const createFreshNote = (type: 'text' | 'drawing'): Note => ({
