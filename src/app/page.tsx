@@ -202,7 +202,7 @@ export default function Home() {
             clearTimeout(searchDebounceTimeout.current);
         }
     };
-  }, [searchQuery, notes, activeNoteId]);
+  }, [searchQuery, notes]);
 
 
   const activeNote = notes.find(n => n.id === activeNoteId);
