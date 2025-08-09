@@ -12,7 +12,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Plus, Menu, FileText, Trash2, Search, X, Brush, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { searchNotes } from '@/ai/flows/semantic-search-flow';
 
 const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
 
@@ -23,16 +22,6 @@ type Note = {
   content: string;
   drawing: string;
 };
-
-type SearchNotesInput = {
-    query: string;
-    notes: Note[];
-}
-
-type SearchNotesOutput = {
-    noteIds: number[];
-}
-
 
 const emptyDrawing = '{"shapes":[],"bindings":{},"assets":{}}';
 
@@ -57,7 +46,6 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-  const searchDebounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -105,6 +93,8 @@ export default function Home() {
   useEffect(() => {
     if (activeNoteId) {
       localStorage.setItem('lastActiveNoteId', activeNoteId.toString());
+    } else {
+      localStorage.removeItem('lastActiveNoteId');
     }
   }, [activeNoteId]);
   
@@ -165,43 +155,23 @@ export default function Home() {
   }, [filteredNotes, activeNoteId]);
 
   useEffect(() => {
-    if (searchDebounceTimeout.current) {
-        clearTimeout(searchDebounceTimeout.current);
+    if (searchQuery === "") {
+        setFilteredNotes(notes);
+        return;
     }
-    searchDebounceTimeout.current = setTimeout(async () => {
-        if (searchQuery === "") {
-            setFilteredNotes(notes);
-            return;
-        }
 
-        let newFilteredNotes: Note[];
-        try {
-            const { noteIds } = await searchNotes({ query: searchQuery, notes });
-            newFilteredNotes = notes.filter(note => noteIds.includes(note.id));
-        } catch (error) {
-            console.error("Semantic search failed, falling back to simple search", error);
-            newFilteredNotes = notes.filter(note =>
-                note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
-        }
-        
-        setFilteredNotes(newFilteredNotes);
+    const newFilteredNotes = notes.filter(note =>
+        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+    
+    setFilteredNotes(newFilteredNotes);
 
-        // If active note is not in the new filtered list, set a new active note
-        if (newFilteredNotes.length > 0 && !newFilteredNotes.some(n => n.id === activeNoteId)) {
-            setActiveNoteId(newFilteredNotes[0].id);
-        } else if (newFilteredNotes.length === 0) {
-            setActiveNoteId(null);
-        }
-
-    }, 300);
-
-    return () => {
-        if (searchDebounceTimeout.current) {
-            clearTimeout(searchDebounceTimeout.current);
-        }
-    };
+    if (newFilteredNotes.length > 0 && !newFilteredNotes.some(n => n.id === activeNoteId)) {
+        setActiveNoteId(newFilteredNotes[0].id);
+    } else if (newFilteredNotes.length === 0) {
+        setActiveNoteId(null);
+    }
   }, [searchQuery, notes]);
 
 
@@ -216,18 +186,30 @@ export default function Home() {
   };
 
   const deleteNote = (id: number) => {
-    let newNotes = notes.filter(n => n.id !== id);
-    let newFiltered = filteredNotes.filter(n => n.id !== id);
+    const newNotes = notes.filter(n => n.id !== id);
+    let newFiltered = newNotes;
+    if (searchQuery) {
+      newFiltered = newNotes.filter(note =>
+        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+    
     let newActiveId: number | null = null;
     
-    if (newNotes.length === 0) {
-      const freshNote = createFreshNote('text');
-      newNotes = [freshNote];
-      newFiltered = [freshNote];
-      newActiveId = freshNote.id;
-    } else if (activeNoteId === id) {
-      const deletedIndexInFiltered = filteredNotes.findIndex(n => n.id === id);
-      newActiveId = newFiltered[deletedIndexInFiltered]?.id || newFiltered[deletedIndexInFiltered - 1]?.id || newNotes[0]?.id || null;
+    if (activeNoteId === id) {
+      if (newFiltered.length > 0) {
+        const deletedIndexInOriginal = notes.findIndex(n => n.id === id);
+        const originalIndexInFiltered = filteredNotes.findIndex(n => n.id === id);
+        
+        if (newFiltered[originalIndexInFiltered]) {
+          newActiveId = newFiltered[originalIndexInFiltered].id;
+        } else if (newFiltered[originalIndexInFiltered - 1]) {
+          newActiveId = newFiltered[originalIndexInFiltered - 1].id;
+        } else {
+           newActiveId = newFiltered[0].id;
+        }
+      }
     } else {
       newActiveId = activeNoteId;
     }
@@ -583,5 +565,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
