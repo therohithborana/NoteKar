@@ -16,7 +16,7 @@ type Note = {
   id: number;
   title: string;
   content: string;
-  drawing: string | null;
+  drawing: string;
 };
 
 const initialNotes: Note[] = [
@@ -33,9 +33,8 @@ export default function Home() {
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    setIsClient(true)
-  }, [])
-
+    setIsClient(true);
+  }, []);
 
   // Load notes from localStorage on initial render
   useEffect(() => {
@@ -51,21 +50,22 @@ export default function Home() {
                     return {
                         id: note.id,
                         title: note.title,
-                        content: note.content || (note.type === 'text' ? '' : 'New Note'),
-                        drawing: note.drawing || (note.type === 'drawing' ? '{"elements":[]}' : null)
+                        content: note.content || '',
+                        drawing: note.drawing || '{"elements":[]}'
                     };
                 });
             }
         }
         setNotes(notesToLoad);
         if (notesToLoad.length > 0) {
+            // Set the active note only after notes have been loaded on the client
             setActiveNoteId(notesToLoad[0].id);
         }
       }
     } catch (error) {
         console.error("Failed to load or migrate data from localStorage", error);
         setNotes(initialNotes);
-        if (initialNotes.length > 0) {
+         if (initialNotes.length > 0) {
           setActiveNoteId(initialNotes[0].id);
         }
     }
