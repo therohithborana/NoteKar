@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Search, X, Brush } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Search, X, Brush, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
@@ -15,12 +15,13 @@ const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: f
 type Note = {
   id: number;
   title: string;
+  type: 'text' | 'drawing';
   content: string;
-  drawing: string; // JSON string for tldraw data
+  drawing: string; 
 };
 
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: "You can write notes here. Enjoy!", drawing: '{"shapes":[],"bindings":{},"assets":{}}' },
+    { id: 1, title: "Welcome!", type: 'text', content: "You can write notes here. Enjoy!", drawing: '' },
 ];
 const emptyDrawing = '{"shapes":[],"bindings":{},"assets":{}}';
 
@@ -36,32 +37,28 @@ export default function Home() {
   
   useEffect(() => {
     setIsClient(true);
-  }, []);
-
-  // Load notes from localStorage on initial render
-  useEffect(() => {
+    // Load notes from localStorage on initial render
     try {
-      if (typeof window !== 'undefined') {
-        const savedNotes = localStorage.getItem('notes-data');
-        let notesToLoad: Note[] = initialNotes;
-        if (savedNotes) {
-            const parsedNotes = JSON.parse(savedNotes);
-            if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
-                // Migration for old note formats
-                notesToLoad = parsedNotes.map(note => {
-                    return {
-                        id: note.id,
-                        title: note.title,
-                        content: note.content || '',
-                        drawing: note.drawing || emptyDrawing
-                    };
-                });
-            }
-        }
-        setNotes(notesToLoad);
-        if (notesToLoad.length > 0) {
-            setActiveNoteId(notesToLoad[0].id);
-        }
+      const savedNotes = localStorage.getItem('notes-data');
+      let notesToLoad: Note[] = initialNotes;
+      if (savedNotes) {
+          const parsedNotes = JSON.parse(savedNotes);
+          if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
+              // Migration for old note formats
+              notesToLoad = parsedNotes.map(note => ({
+                  id: note.id,
+                  title: note.title,
+                  type: note.type || (note.drawing && !note.content ? 'drawing' : 'text'),
+                  content: note.content || '',
+                  drawing: note.drawing || (note.type === 'drawing' ? emptyDrawing : '')
+              }));
+          }
+      }
+      setNotes(notesToLoad);
+      if (notesToLoad.length > 0) {
+          setActiveNoteId(notesToLoad[0].id);
+      } else {
+        setActiveNoteId(null);
       }
     } catch (error) {
         console.error("Failed to load or migrate data from localStorage", error);
@@ -82,8 +79,9 @@ export default function Home() {
            const newNote: Note = {
              id: Date.now(),
              title: "New Note from page",
+             type: 'text',
              content: changes.newNoteContent.newValue,
-             drawing: emptyDrawing
+             drawing: ''
            };
            const updatedNotes = [newNote, ...notes];
            setNotes(updatedNotes);
@@ -94,14 +92,14 @@ export default function Home() {
       };
       chrome.storage.onChanged.addListener(handleStorageChange);
   
-      // Initial check in case the value was set before the listener was added
       chrome.storage.local.get("newNoteContent", (data) => {
         if (data.newNoteContent) {
           const newNote: Note = {
             id: Date.now(),
             title: "New Note from page",
+            type: 'text',
             content: data.newNoteContent,
-            drawing: emptyDrawing
+            drawing: ''
           };
           const updatedNotes = [newNote, ...notes];
           setNotes(updatedNotes);
@@ -123,12 +121,13 @@ export default function Home() {
       }
   };
 
-  const createNewNote = () => {
+  const createNewNote = (type: 'text' | 'drawing') => {
     const newNote: Note = {
       id: Date.now(),
-      title: "Untitled Note",
+      title: type === 'text' ? "Untitled Note" : "New Drawing",
+      type: type,
       content: "",
-      drawing: emptyDrawing
+      drawing: type === 'drawing' ? emptyDrawing : ''
     };
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
@@ -163,20 +162,6 @@ export default function Home() {
         }, 500);
       }
   }
-
-  const addDrawingToNote = () => {
-    if (activeNote) {
-      // We can just set a non-empty but valid initial state to trigger the UI change.
-      // The TldrawCanvas component will handle the real initial state.
-      handleNoteChange('drawing', '{"shapes":[],"bindings":{},"assets":{}}');
-    }
-  };
-
-  const removeDrawingFromNote = () => {
-    if (activeNote) {
-      handleNoteChange('drawing', emptyDrawing);
-    }
-  };
   
   const SidebarHeader = () => (
     <div className="p-4 flex flex-col gap-4">
@@ -204,9 +189,13 @@ export default function Home() {
         )}
 
         <div className="px-4 flex flex-col gap-2">
-          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={createNewNote}>
-              <Plus className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('text')}>
+              <Type className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
               {!collapsed && <span>New Note</span>}
+          </Button>
+           <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('drawing')}>
+              <Brush className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+              {!collapsed && <span>New Drawing</span>}
           </Button>
         </div>
       
@@ -224,7 +213,11 @@ export default function Home() {
                                 }
                             }}
                         >
-                            <FileText className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+                            {note.type === 'drawing' ? (
+                                <Brush className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+                            ) : (
+                                <FileText className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+                            )}
                             {!collapsed && <span className="truncate flex-1 text-left">{note.title}</span>}
                         </Button>
                          {!collapsed && (
@@ -238,20 +231,9 @@ export default function Home() {
         </div>
 
         <div className="mt-auto p-4">
-         
         </div>
     </div>
   );
-
-  const isDrawingEmpty = (drawingData: string) => {
-    try {
-        if (!drawingData || drawingData === "{}") return true;
-        const data = JSON.parse(drawingData);
-        return !data.shapes || data.shapes.length === 0;
-    } catch (e) {
-        return true;
-    }
-  };
 
   return (
     <div className="flex h-screen dark bg-background">
@@ -267,13 +249,16 @@ export default function Home() {
                 <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)} className="mb-4">
                     <Menu className="h-5 w-5" />
                 </Button>
-                 <Button variant="ghost" size="icon" onClick={createNewNote} className="mb-2">
-                    <Plus className="h-5 w-5" />
+                 <Button variant="ghost" size="icon" onClick={() => createNewNote('text')} className="mb-2">
+                    <Type className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => createNewNote('drawing')} className="mb-2">
+                    <Brush className="h-5 w-5" />
                 </Button>
                 <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2">
                    {notes.slice(0, 10).map(note => (
                        <Button key={note.id} variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" onClick={() => setActiveNoteId(note.id)}>
-                           <FileText className="h-5 w-5"/>
+                           {note.type === 'drawing' ? <Brush className="h-5 w-5"/> : <FileText className="h-5 w-5"/>}
                        </Button>
                    ))}
                 </div>
@@ -309,43 +294,32 @@ export default function Home() {
             <Input
               value={activeNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
-              placeholder="Untitled Note"
+              placeholder="Untitled"
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            <Textarea
-              value={activeNote.content || ''}
-              onChange={(e) => handleNoteChange('content', e.target.value)}
-              placeholder="Start writing..."
-              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4"
-            />
-             <div className="flex-1 min-h-[400px] relative">
-                {isDrawingEmpty(activeNote.drawing) ? (
-                    <div className="flex items-center justify-center h-full border-2 border-dashed rounded-lg">
-                        <Button variant="outline" onClick={addDrawingToNote}>
-                            <Brush className="mr-2 h-4 w-4" />
-                            Add Drawing
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="relative h-full border rounded-lg overflow-hidden">
-                        <Button variant="ghost" size="icon" className="absolute top-2 right-2 z-10 bg-background/50 hover:bg-background/80" onClick={removeDrawingFromNote}>
-                           <Trash2 className="h-4 w-4"/>
-                       </Button>
-                       <TldrawCanvas
-                           persistenceKey={`note-${activeNote.id}`}
-                           initialData={activeNote.drawing}
-                           onSave={(data) => handleNoteChange('drawing', data)}
-                       />
-                   </div>
-                )}
-            </div>
+            {activeNote.type === 'text' ? (
+                <Textarea
+                  value={activeNote.content || ''}
+                  onChange={(e) => handleNoteChange('content', e.target.value)}
+                  placeholder="Start writing..."
+                  className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4"
+                />
+            ) : (
+                <div className="flex-1 min-h-[400px] relative border rounded-lg overflow-hidden">
+                   <TldrawCanvas
+                       persistenceKey={`note-drawing-${activeNote.id}`}
+                       initialData={activeNote.drawing}
+                       onSave={(data) => handleNoteChange('drawing', data)}
+                   />
+               </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold">No note selected</h2>
             <p className="text-muted-foreground mb-4">Create a new note or select one from the sidebar.</p>
-            <Button onClick={createNewNote} variant="outline">
+            <Button onClick={() => createNewNote('text')} variant="outline">
                 <Plus className="mr-2 h-4 w-4" />
                 Create a Note
             </Button>

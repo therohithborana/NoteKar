@@ -23,9 +23,13 @@ function EditorInner({ initialData, onSave }: Pick<TldrawCanvasProps, 'initialDa
                  // Prevent loading empty state over existing drawings if parent state updates
                 if (snapshot.shapes && snapshot.shapes.length > 0) {
                     editor.loadSnapshot(snapshot);
+                } else {
+                    editor.loadSnapshot({shapes: [], bindings: {}, assets: {}});
                 }
             } catch (e) {
                 console.error("Failed to load drawing data", e);
+                // Load empty state on error
+                editor.loadSnapshot({shapes: [], bindings: {}, assets: {}});
             }
         }
     }, [editor, initialData]);
