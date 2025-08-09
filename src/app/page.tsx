@@ -73,19 +73,19 @@ export default function Home() {
       }
       
       setNotes(notesToLoad);
-      setFilteredNotes(notesToLoad);
 
       const lastActiveId = localStorage.getItem('lastActiveNoteId');
       if (lastActiveId && notesToLoad.some(n => n.id === +lastActiveId)) {
         setActiveNoteId(+lastActiveId);
-      } else {
+      } else if (notesToLoad.length > 0) {
         setActiveNoteId(notesToLoad[0].id);
+      } else {
+        setActiveNoteId(null);
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
         const firstNote = createFreshNote('text');
         setNotes([firstNote]);
-        setFilteredNotes([firstNote]);
         setActiveNoteId(firstNote.id);
     }
   }, []);
@@ -113,7 +113,11 @@ export default function Home() {
     
     // If there's a search query, we add the new note to the filtered list as well
     if (searchQuery) {
-        setFilteredNotes([newNote, ...filteredNotes]);
+        const newFiltered = updatedNotes.filter(note =>
+            note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+        setFilteredNotes(newFiltered);
     } else {
         setFilteredNotes(updatedNotes);
     }
@@ -155,24 +159,21 @@ export default function Home() {
   }, [filteredNotes, activeNoteId]);
 
   useEffect(() => {
-    if (searchQuery === "") {
-        setFilteredNotes(notes);
-        return;
-    }
-
     const newFilteredNotes = notes.filter(note =>
         note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
     );
-    
+
     setFilteredNotes(newFilteredNotes);
 
-    if (newFilteredNotes.length > 0 && !newFilteredNotes.some(n => n.id === activeNoteId)) {
+    if (activeNoteId === null && newFilteredNotes.length > 0) {
+        setActiveNoteId(newFilteredNotes[0].id);
+    } else if (newFilteredNotes.length > 0 && !newFilteredNotes.some(n => n.id === activeNoteId)) {
         setActiveNoteId(newFilteredNotes[0].id);
     } else if (newFilteredNotes.length === 0) {
         setActiveNoteId(null);
     }
-  }, [searchQuery, notes]);
+}, [searchQuery, notes]);
 
 
   const activeNote = notes.find(n => n.id === activeNoteId);
@@ -224,11 +225,6 @@ export default function Home() {
       if (activeNote) {
         const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
-        
-        // Also update the note in filtered notes
-        const updatedFilteredNotes = filteredNotes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
-        setFilteredNotes(updatedFilteredNotes);
-
 
         if (debounceTimeout.current) {
             clearTimeout(debounceTimeout.current);
