@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Plus, Menu, FileText, Trash2, Search, X, Brush, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-
+import { searchNotes } from '@/ai/flows/semantic-search-flow';
 
 const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
 
@@ -37,6 +37,8 @@ const createFreshNote = (type: 'text' | 'drawing'): Note => ({
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
@@ -44,8 +46,8 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const searchDebounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -73,6 +75,7 @@ export default function Home() {
       }
       
       setNotes(notesToLoad);
+      setFilteredNotes(notesToLoad);
 
       const lastActiveId = localStorage.getItem('lastActiveNoteId');
       if (lastActiveId && notesToLoad.some(n => n.id === +lastActiveId)) {
@@ -84,6 +87,7 @@ export default function Home() {
         console.error("Failed to load data from localStorage", error);
         const firstNote = createFreshNote('text');
         setNotes([firstNote]);
+        setFilteredNotes([firstNote]);
         setActiveNoteId(firstNote.id);
     }
   }, []);
@@ -106,6 +110,7 @@ export default function Home() {
     const newNote = createFreshNote(type);
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
+    setFilteredNotes(updatedNotes); // Also update filtered notes
     setActiveNoteId(newNote.id);
     saveNotes(updatedNotes, newNote.id);
 
@@ -119,16 +124,16 @@ export default function Home() {
       if (e.altKey) {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
-          const currentIndex = notes.findIndex(n => n.id === activeNoteId);
+          const currentIndex = filteredNotes.findIndex(n => n.id === activeNoteId);
           if (currentIndex === -1) return;
 
           let nextIndex;
           if (e.key === 'ArrowUp') {
-            nextIndex = currentIndex > 0 ? currentIndex - 1 : notes.length - 1;
+            nextIndex = currentIndex > 0 ? currentIndex - 1 : filteredNotes.length - 1;
           } else {
-            nextIndex = currentIndex < notes.length - 1 ? currentIndex + 1 : 0;
+            nextIndex = currentIndex < filteredNotes.length - 1 ? currentIndex + 1 : 0;
           }
-          setActiveNoteId(notes[nextIndex].id);
+          setActiveNoteId(filteredNotes[nextIndex].id);
         } else if (e.key === 'm') {
           e.preventDefault();
           createNewNote('text');
@@ -140,7 +145,32 @@ export default function Home() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [notes, activeNoteId]);
+  }, [filteredNotes, activeNoteId]);
+
+  useEffect(() => {
+    if (searchDebounceTimeout.current) {
+        clearTimeout(searchDebounceTimeout.current);
+    }
+    searchDebounceTimeout.current = setTimeout(async () => {
+        if (searchQuery === "") {
+            setFilteredNotes(notes);
+        } else {
+            try {
+                const { noteIds } = await searchNotes({ query: searchQuery, notes });
+                const newFilteredNotes = notes.filter(note => noteIds.includes(note.id));
+                setFilteredNotes(newFilteredNotes);
+            } catch (error) {
+                console.error("Semantic search failed", error);
+                // Fallback to simple search
+                const newFilteredNotes = notes.filter(note =>
+                    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+                );
+                setFilteredNotes(newFilteredNotes);
+            }
+        }
+    }, 500);
+  }, [searchQuery, notes]);
 
 
   const activeNote = notes.find(n => n.id === activeNoteId);
@@ -153,7 +183,6 @@ export default function Home() {
       }
   };
 
-
   const deleteNote = (id: number) => {
     let newNotes = notes.filter(n => n.id !== id);
     let newActiveId: number | null = null;
@@ -163,12 +192,16 @@ export default function Home() {
       newNotes = [freshNote];
       newActiveId = freshNote.id;
     } else if (activeNoteId === id) {
-      newActiveId = newNotes[0]?.id || null;
+      // Find the index of the deleted note in the filtered list
+      const deletedIndexInFiltered = filteredNotes.findIndex(n => n.id === id);
+      // Get the next note from the filtered list
+      newActiveId = filteredNotes[deletedIndexInFiltered + 1]?.id || filteredNotes[deletedIndexInFiltered - 1]?.id || newNotes[0]?.id || null;
     } else {
       newActiveId = activeNoteId;
     }
     
     setNotes(newNotes);
+    setFilteredNotes(newNotes.filter(n => filteredNotes.some(fn => fn.id === n.id && n.id !== id))) // Re-filter
     setActiveNoteId(newActiveId);
     saveNotes(newNotes, newActiveId);
   };
@@ -247,7 +280,12 @@ export default function Home() {
         {!collapsed && (
           <div className="relative mb-2 px-4">
               <Search className="absolute left-7 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search..." className="pl-9 bg-secondary/30" />
+              <Input 
+                placeholder="Search..." 
+                className="pl-9 bg-secondary/30"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
           </div>
         )}
 
@@ -281,7 +319,7 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto px-4 mt-4">
             <nav className="flex flex-col gap-1">
-                {notes.map(note => (
+                {filteredNotes.map(note => (
                     <div key={note.id} className="group relative flex items-center">
                         <Button
                             variant={activeNoteId === note.id ? "secondary" : "ghost"}
@@ -393,7 +431,7 @@ export default function Home() {
                 </TooltipProvider>
 
                 <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2 w-full px-2">
-                   {notes.map(note => (
+                   {filteredNotes.map(note => (
                      <div key={note.id} className="w-full relative group">
                        <TooltipProvider>
                         <Tooltip>
@@ -432,8 +470,8 @@ export default function Home() {
             </SheetContent>
           </Sheet>
 
-      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden bg-background">
-        <div className="flex items-center mb-4 md:hidden">
+      <main className="flex-1 flex flex-col px-4 md:px-8 pb-4 md:pb-8 overflow-hidden bg-background">
+        <div className="flex items-center mb-4 md:hidden pt-4">
           <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
             <Menu className="h-6 w-6" />
           </Button>
@@ -492,5 +530,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
