@@ -54,7 +54,7 @@ export default function Home() {
 
       if (savedNotes) {
           const parsedNotes = JSON.parse(savedNotes);
-          if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
+          if (Array.isArray(parsedNotes)) {
               notesToLoad = parsedNotes.map((note: any) => ({
                   id: note.id,
                   title: note.title,
@@ -63,12 +63,6 @@ export default function Home() {
                   drawing: note.drawing || (note.type === 'drawing' ? emptyDrawing : '')
               }));
           }
-      }
-
-      if (notesToLoad.length === 0) {
-        const firstNote = createFreshNote('text');
-        notesToLoad.push(firstNote);
-        saveNotes([firstNote], firstNote.id);
       }
       
       setNotes(notesToLoad);
@@ -83,11 +77,21 @@ export default function Home() {
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
-        const firstNote = createFreshNote('text');
-        setNotes([firstNote]);
-        setActiveNoteId(firstNote.id);
+        setNotes([]);
+        setActiveNoteId(null);
     }
   }, []);
+
+  const filteredNotes = notes.filter(note =>
+      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const activeNote = activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
+  const activeNoteInFilteredList = activeNoteId ? filteredNotes.some(n => n.id === activeNoteId) : false;
+  const displayedActiveNoteId = activeNoteInFilteredList ? activeNoteId : (filteredNotes.length > 0 ? filteredNotes[0].id : null);
+  const displayedActiveNote = displayedActiveNoteId ? notes.find(n => n.id === displayedActiveNoteId) : null;
+
 
   useEffect(() => {
     if (activeNoteId) {
@@ -103,13 +107,21 @@ export default function Home() {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [isEditing]);
+  }, [isEditing, (displayedActiveNote?.content)]);
+
+  const saveNotes = (updatedNotes: Note[], idToUpdate?: number | null) => {
+      if (typeof window !== 'undefined') {
+          localStorage.setItem('notes-data', JSON.stringify(updatedNotes));
+          if (idToUpdate) {
+            localStorage.setItem('lastActiveNoteId', idToUpdate.toString());
+          }
+      }
+  };
   
   const createNewNote = (type: 'text' | 'drawing') => {
     const newNote = createFreshNote(type);
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
-    
     setActiveNoteId(newNote.id);
     saveNotes(updatedNotes, newNote.id);
 
@@ -118,17 +130,12 @@ export default function Home() {
     }
   };
   
-  const filteredNotes = notes.filter(note =>
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.altKey) {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
-          const currentIndex = filteredNotes.findIndex(n => n.id === activeNoteId);
+          const currentIndex = filteredNotes.findIndex(n => n.id === displayedActiveNoteId);
           if (currentIndex === -1) return;
 
           let nextIndex;
@@ -149,56 +156,37 @@ export default function Home() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [filteredNotes, activeNoteId]);
-
-  useEffect(() => {
-    if (activeNoteId && !filteredNotes.some(n => n.id === activeNoteId)) {
-        setActiveNoteId(filteredNotes.length > 0 ? filteredNotes[0].id : null);
-    } else if (activeNoteId === null && filteredNotes.length > 0) {
-        setActiveNoteId(filteredNotes[0].id);
-    }
-  }, [searchQuery, notes]);
-
-
-  const activeNote = notes.find(n => n.id === activeNoteId);
-  const saveNotes = (updatedNotes: Note[], idToUpdate?: number | null) => {
-      if (typeof window !== 'undefined') {
-          localStorage.setItem('notes-data', JSON.stringify(updatedNotes));
-          if (idToUpdate) {
-            localStorage.setItem('lastActiveNoteId', idToUpdate.toString());
-          }
-      }
-  };
+  }, [filteredNotes, displayedActiveNoteId]);
 
   const deleteNote = (id: number) => {
     const newNotes = notes.filter(n => n.id !== id);
-    let newActiveId: number | null = null;
+    let newActiveId: number | null = activeNoteId;
 
     if (activeNoteId === id) {
-        const currentIndex = notes.findIndex(n => n.id === id);
+        const currentIndexInAll = notes.findIndex(n => n.id === id);
         if (newNotes.length > 0) {
-            newActiveId = newNotes[Math.max(0, currentIndex - 1)].id;
+            const newIndex = Math.max(0, currentIndexInAll - 1);
+            newActiveId = newNotes[newIndex]?.id || (newNotes.length > 0 ? newNotes[0].id : null);
+        } else {
+            newActiveId = null;
         }
-    } else {
-        newActiveId = activeNoteId;
     }
-
     setNotes(newNotes);
     setActiveNoteId(newActiveId);
     saveNotes(newNotes, newActiveId);
-};
+  };
 
 
   const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
-      if (activeNote) {
-        const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
+      if (displayedActiveNoteId) {
+        const updatedNotes = notes.map(n => n.id === displayedActiveNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
 
         if (debounceTimeout.current) {
             clearTimeout(debounceTimeout.current);
         }
         debounceTimeout.current = setTimeout(() => {
-            saveNotes(updatedNotes, activeNoteId);
+            saveNotes(updatedNotes, displayedActiveNoteId);
         }, 500);
       }
   }
@@ -305,7 +293,7 @@ export default function Home() {
                 {filteredNotes.map(note => (
                     <div key={note.id} className="group relative flex items-center">
                         <Button
-                            variant={activeNoteId === note.id ? "secondary" : "ghost"}
+                            variant={displayedActiveNoteId === note.id ? "secondary" : "ghost"}
                             className="w-full justify-start pl-2 pr-8"
                             onClick={() => {
                                 setActiveNoteId(note.id);
@@ -363,8 +351,8 @@ export default function Home() {
   };
   
     const handleCheckboxToggle = (lineIndex: number, checked: boolean) => {
-    if (activeNote) {
-      const lines = activeNote.content.split('\n');
+    if (displayedActiveNote) {
+      const lines = displayedActiveNote.content.split('\n');
       if (lines[lineIndex]) {
         lines[lineIndex] = checked 
           ? lines[lineIndex].replace('- [ ]', '- [x]')
@@ -430,7 +418,7 @@ export default function Home() {
                        <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" className="w-full" onClick={() => setActiveNoteId(note.id)}>
+                            <Button variant={displayedActiveNoteId === note.id ? "secondary" : "ghost"} size="icon" className="w-full" onClick={() => setActiveNoteId(note.id)}>
                                 {note.type === 'drawing' ? <Brush className="h-5 w-5"/> : <FileText className="h-5 w-5"/>}
                             </Button>
                           </TooltipTrigger>
@@ -474,20 +462,20 @@ export default function Home() {
           </Button>
         </div>
         
-        {activeNote ? (
+        {displayedActiveNote ? (
           <div className="flex-1 flex flex-col h-full overflow-y-auto pt-4">
             <Input
-              value={activeNote.title}
+              value={displayedActiveNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
               placeholder="Untitled"
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            {activeNote.type === 'text' ? (
+            {displayedActiveNote.type === 'text' ? (
                 <div className="flex-1 flex flex-col text-base" onClick={() => setIsEditing(true)}>
                 {isEditing ? (
                    <Textarea
                      ref={textareaRef}
-                     value={activeNote.content || ''}
+                     value={displayedActiveNote.content || ''}
                      onChange={(e) => {
                        handleNoteChange('content', e.target.value);
                        e.target.style.height = 'auto';
@@ -500,10 +488,10 @@ export default function Home() {
                    />
                 ) : (
                     <div className="prose prose-invert max-w-none flex-1">
-                      {activeNote.content ? (
-                        <MarkdownRenderer content={activeNote.content} onCheckboxToggle={handleCheckboxToggle} />
+                      {displayedActiveNote.content ? (
+                        <MarkdownRenderer content={displayedActiveNote.content} onCheckboxToggle={handleCheckboxToggle} />
                       ) : (
-                        <p className="text-muted-foreground">Start writing...</p>
+                        <p className="text-muted-foreground" onClick={() => setIsEditing(true)}>Start writing...</p>
                       )}
                     </div>
                 )}
@@ -511,8 +499,8 @@ export default function Home() {
             ) : (
                 <div className="flex-1 min-h-[400px] relative border rounded-lg overflow-hidden">
                    <TldrawCanvas
-                       persistenceKey={`note-drawing-${activeNote.id}`}
-                       initialData={activeNote.drawing}
+                       persistenceKey={`note-drawing-${displayedActiveNote.id}`}
+                       initialData={displayedActiveNote.drawing}
                        onSave={(data) => handleNoteChange('drawing', data)}
                    />
                </div>
@@ -521,8 +509,8 @@ export default function Home() {
         ) : (
            <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold">No note selected</h2>
-             <p className="text-muted-foreground">Create a new note or select one from the list.</p>
+            <h2 className="text-2xl font-semibold">{notes.length > 0 ? "No search results" : "No note yet"}</h2>
+             <p className="text-muted-foreground">{notes.length > 0 ? "Try a different search term" : "Create a new note to get started"}</p>
           </div>
         )}
       </main>
