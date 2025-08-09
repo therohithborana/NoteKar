@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Plus, Menu, FileText, Trash2, Search, X, Brush, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
 
 const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
 
@@ -249,24 +251,41 @@ export default function Home() {
           </div>
         )}
 
-        <div className="px-4 flex flex-col gap-2">
-          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('text')}>
-              <Type className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
-              {!collapsed && <span>New Note</span>}
-          </Button>
-           <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('drawing')}>
-              <Brush className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
-              {!collapsed && <span>New Drawing</span>}
-          </Button>
+        <div className="px-4 flex items-center gap-2" style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}>
+           <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                   <Button variant="outline" size="icon" onClick={() => createNewNote('text')}>
+                      <Type className="h-4 w-4" />
+                   </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>New Note</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                   <Button variant="outline" size="icon" onClick={() => createNewNote('drawing')}>
+                      <Brush className="h-4 w-4" />
+                   </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>New Drawing</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
         </div>
+
 
         <div className="flex-1 overflow-y-auto px-4 mt-4">
             <nav className="flex flex-col gap-1">
                 {notes.map(note => (
-                    <div key={note.id} className="group flex items-center">
+                    <div key={note.id} className="group relative flex items-center">
                         <Button
                             variant={activeNoteId === note.id ? "secondary" : "ghost"}
-                            className="w-full justify-start"
+                            className="w-full justify-start pl-2 pr-8"
                             onClick={() => {
                                 setActiveNoteId(note.id);
                                 if (isMobileSidebarOpen) {
@@ -282,7 +301,7 @@ export default function Home() {
                             {!collapsed && <span className="truncate flex-1 text-left">{note.title}</span>}
                         </Button>
                          {!collapsed && (
-                           <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => deleteNote(note.id)}>
+                           <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); deleteNote(note.id);}}>
                                <Trash2 className="h-4 w-4"/>
                            </Button>
                          )}
@@ -348,17 +367,50 @@ export default function Home() {
                 <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)} className="mb-4">
                     <Menu className="h-5 w-5" />
                 </Button>
-                 <Button variant="ghost" size="icon" onClick={() => createNewNote('text')} className="mb-2">
-                    <Type className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => createNewNote('drawing')} className="mb-2">
-                    <Brush className="h-5 w-5" />
-                </Button>
-                <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2">
-                   {notes.slice(0, 10).map(note => (
-                       <Button key={note.id} variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" onClick={() => setActiveNoteId(note.id)}>
-                           {note.type === 'drawing' ? <Brush className="h-5 w-5"/> : <FileText className="h-5 w-5"/>}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button variant="ghost" size="icon" onClick={() => createNewNote('text')} className="mb-2">
+                          <Type className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>New Note</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button variant="ghost" size="icon" onClick={() => createNewNote('drawing')} className="mb-2">
+                          <Brush className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>New Drawing</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2 w-full px-2">
+                   {notes.map(note => (
+                     <div key={note.id} className="w-full relative group">
+                       <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" className="w-full" onClick={() => setActiveNoteId(note.id)}>
+                                {note.type === 'drawing' ? <Brush className="h-5 w-5"/> : <FileText className="h-5 w-5"/>}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>{note.title}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                       </TooltipProvider>
+                        <Button variant="destructive" size="icon" className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={(e) => {e.stopPropagation(); deleteNote(note.id)}}>
+                           <Trash2 className="h-3 w-3"/>
                        </Button>
+                     </div>
                    ))}
                 </div>
                 <div className="mt-auto">
@@ -384,6 +436,9 @@ export default function Home() {
         <div className="flex items-center mb-4 md:hidden">
           <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
             <Menu className="h-6 w-6" />
+          </Button>
+           <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(c => !c)} className="hidden md:inline-flex ml-auto">
+              <Menu className="h-5 w-5" />
           </Button>
         </div>
         
