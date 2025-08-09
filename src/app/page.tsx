@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, X, Brush, Type, Search as SearchIcon } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, X, Brush, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -210,9 +210,7 @@ export default function Home() {
           e.preventDefault();
           if (activeNote) {
               let lines = activeNote.content.split('\n');
-              const currentLine = lines[index];
-              const isTodo = currentLine.startsWith('- [ ]') || currentLine.startsWith('- [x]');
-              const newLine = isTodo ? '- [ ] ' : '';
+              const newLine = '';
               
               lines.splice(index + 1, 0, newLine);
               handleNoteChange('content', lines.join('\n'));
