@@ -82,15 +82,14 @@ export default function Home() {
     }
   }, []);
 
-  const filteredNotes = notes.filter(note =>
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredNotes = searchQuery
+    ? notes.filter(note =>
+        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (note.type === 'text' && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : notes;
 
   const activeNote = activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
-  const activeNoteInFilteredList = activeNoteId ? filteredNotes.some(n => n.id === activeNoteId) : false;
-  const displayedActiveNoteId = activeNoteInFilteredList ? activeNoteId : (filteredNotes.length > 0 ? filteredNotes[0].id : null);
-  const displayedActiveNote = displayedActiveNoteId ? notes.find(n => n.id === displayedActiveNoteId) : null;
 
 
   useEffect(() => {
@@ -107,7 +106,7 @@ export default function Home() {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
-  }, [isEditing, (displayedActiveNote?.content)]);
+  }, [isEditing, (activeNote?.content)]);
 
   const saveNotes = (updatedNotes: Note[], idToUpdate?: number | null) => {
       if (typeof window !== 'undefined') {
@@ -135,7 +134,7 @@ export default function Home() {
       if (e.altKey) {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
-          const currentIndex = filteredNotes.findIndex(n => n.id === displayedActiveNoteId);
+          const currentIndex = filteredNotes.findIndex(n => n.id === activeNoteId);
           if (currentIndex === -1) return;
 
           let nextIndex;
@@ -156,7 +155,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [filteredNotes, displayedActiveNoteId]);
+  }, [filteredNotes, activeNoteId]);
 
   const deleteNote = (id: number) => {
     const newNotes = notes.filter(n => n.id !== id);
@@ -178,15 +177,15 @@ export default function Home() {
 
 
   const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
-      if (displayedActiveNoteId) {
-        const updatedNotes = notes.map(n => n.id === displayedActiveNoteId ? {...n, [field]: value} : n);
+      if (activeNoteId) {
+        const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
 
         if (debounceTimeout.current) {
             clearTimeout(debounceTimeout.current);
         }
         debounceTimeout.current = setTimeout(() => {
-            saveNotes(updatedNotes, displayedActiveNoteId);
+            saveNotes(updatedNotes, activeNoteId);
         }, 500);
       }
   }
@@ -293,7 +292,7 @@ export default function Home() {
                 {filteredNotes.map(note => (
                     <div key={note.id} className="group relative flex items-center">
                         <Button
-                            variant={displayedActiveNoteId === note.id ? "secondary" : "ghost"}
+                            variant={activeNoteId === note.id ? "secondary" : "ghost"}
                             className="w-full justify-start pl-2 pr-8"
                             onClick={() => {
                                 setActiveNoteId(note.id);
@@ -351,8 +350,8 @@ export default function Home() {
   };
   
     const handleCheckboxToggle = (lineIndex: number, checked: boolean) => {
-    if (displayedActiveNote) {
-      const lines = displayedActiveNote.content.split('\n');
+    if (activeNote) {
+      const lines = activeNote.content.split('\n');
       if (lines[lineIndex]) {
         lines[lineIndex] = checked 
           ? lines[lineIndex].replace('- [ ]', '- [x]')
@@ -418,7 +417,7 @@ export default function Home() {
                        <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant={displayedActiveNoteId === note.id ? "secondary" : "ghost"} size="icon" className="w-full" onClick={() => setActiveNoteId(note.id)}>
+                            <Button variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" className="w-full" onClick={() => setActiveNoteId(note.id)}>
                                 {note.type === 'drawing' ? <Brush className="h-5 w-5"/> : <FileText className="h-5 w-5"/>}
                             </Button>
                           </TooltipTrigger>
@@ -462,20 +461,20 @@ export default function Home() {
           </Button>
         </div>
         
-        {displayedActiveNote ? (
+        {activeNote ? (
           <div className="flex-1 flex flex-col h-full overflow-y-auto pt-4">
             <Input
-              value={displayedActiveNote.title}
+              value={activeNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
               placeholder="Untitled"
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            {displayedActiveNote.type === 'text' ? (
+            {activeNote.type === 'text' ? (
                 <div className="flex-1 flex flex-col text-base" onClick={() => setIsEditing(true)}>
                 {isEditing ? (
                    <Textarea
                      ref={textareaRef}
-                     value={displayedActiveNote.content || ''}
+                     value={activeNote.content || ''}
                      onChange={(e) => {
                        handleNoteChange('content', e.target.value);
                        e.target.style.height = 'auto';
@@ -488,8 +487,8 @@ export default function Home() {
                    />
                 ) : (
                     <div className="prose prose-invert max-w-none flex-1">
-                      {displayedActiveNote.content ? (
-                        <MarkdownRenderer content={displayedActiveNote.content} onCheckboxToggle={handleCheckboxToggle} />
+                      {activeNote.content ? (
+                        <MarkdownRenderer content={activeNote.content} onCheckboxToggle={handleCheckboxToggle} />
                       ) : (
                         <p className="text-muted-foreground" onClick={() => setIsEditing(true)}>Start writing...</p>
                       )}
@@ -499,8 +498,8 @@ export default function Home() {
             ) : (
                 <div className="flex-1 min-h-[400px] relative border rounded-lg overflow-hidden">
                    <TldrawCanvas
-                       persistenceKey={`note-drawing-${displayedActiveNote.id}`}
-                       initialData={displayedActiveNote.drawing}
+                       persistenceKey={`note-drawing-${activeNote.id}`}
+                       initialData={activeNote.drawing}
                        onSave={(data) => handleNoteChange('drawing', data)}
                    />
                </div>
@@ -509,8 +508,8 @@ export default function Home() {
         ) : (
            <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold">{notes.length > 0 ? "No search results" : "No note yet"}</h2>
-             <p className="text-muted-foreground">{notes.length > 0 ? "Try a different search term" : "Create a new note to get started"}</p>
+            <h2 className="text-2xl font-semibold">{notes.length > 0 && searchQuery.length > 0 ? "No search results" : "Create a new note"}</h2>
+             <p className="text-muted-foreground">{notes.length > 0 && searchQuery.length > 0 ? "Try a different search term" : "There are no notes. Get started by creating one."}</p>
           </div>
         )}
       </main>
