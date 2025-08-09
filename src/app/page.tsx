@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Search, ChevronsLeft, UploadCloud, DownloadCloud, LogIn } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Search, X, UploadCloud, DownloadCloud, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
@@ -198,12 +198,14 @@ export default function Home() {
         {!collapsed && (
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    {isSignedIn ? <UserButton afterSignOutUrl="/"/> : <SignInButton mode="modal"><Button size="icon" variant="ghost"><LogIn /></Button></SignInButton>}
-                    <h1 className="text-xl font-bold">{isSignedIn ? user?.firstName : 'Notes'}</h1>
+                    <h1 className="text-xl font-bold">Notes</h1>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
-                    <ChevronsLeft className="h-4 w-4"/>
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isSignedIn ? <UserButton afterSignOutUrl="/"/> : <SignInButton mode="modal"><Button size="sm" variant="ghost">Sign In</Button></SignInButton>}
+                  <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
+                      <X className="h-4 w-4"/>
+                  </Button>
+                </div>
             </div>
         )}
 
@@ -293,9 +295,9 @@ export default function Home() {
       {/* Mobile Sidebar */}
        <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
             <SheetContent side="left" className="p-0 w-72 md:hidden bg-background">
-              <SheetHeader>
-                <SheetTitle className="sr-only">Notes Sidebar</SheetTitle>
-                <SheetDescription className="sr-only">A list of your notes and settings.</SheetDescription>
+              <SheetHeader className="hidden">
+                <SheetTitle>Sidebar</SheetTitle>
+                <SheetDescription>Notes and settings</SheetDescription>
               </SheetHeader>
               <SidebarContent collapsed={false} />
             </SheetContent>
