@@ -22,10 +22,16 @@ type Note = {
   drawing: string;
 };
 
-const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", type: 'text', content: "You can write notes here. Enjoy!", drawing: '' },
-];
 const emptyDrawing = '{"shapes":[],"bindings":{},"assets":{}}';
+
+const createFreshNote = (type: 'text' | 'drawing'): Note => ({
+  id: Date.now(),
+  title: type === 'text' ? "Untitled Note" : "New Drawing",
+  type: type,
+  content: "",
+  drawing: type === 'drawing' ? emptyDrawing : ''
+});
+
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -42,8 +48,9 @@ export default function Home() {
   useEffect(() => {
     setIsClient(true);
     try {
+      let notesToLoad: Note[] = [];
       const savedNotes = localStorage.getItem('notes-data');
-      let notesToLoad: Note[] = initialNotes;
+
       if (savedNotes) {
           const parsedNotes = JSON.parse(savedNotes);
           if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
@@ -56,22 +63,26 @@ export default function Home() {
               }));
           }
       }
+
+      if (notesToLoad.length === 0) {
+        const firstNote = createFreshNote('text');
+        notesToLoad.push(firstNote);
+        saveNotes([firstNote], firstNote.id);
+      }
+      
       setNotes(notesToLoad);
 
       const lastActiveId = localStorage.getItem('lastActiveNoteId');
       if (lastActiveId && notesToLoad.some(n => n.id === +lastActiveId)) {
         setActiveNoteId(+lastActiveId);
-      } else if (notesToLoad.length > 0) {
-        setActiveNoteId(notesToLoad[0].id);
       } else {
-        setActiveNoteId(null);
+        setActiveNoteId(notesToLoad[0].id);
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
-        setNotes(initialNotes);
-         if (initialNotes.length > 0) {
-          setActiveNoteId(initialNotes[0].id);
-        }
+        const firstNote = createFreshNote('text');
+        setNotes([firstNote]);
+        setActiveNoteId(firstNote.id);
     }
   }, []);
 
@@ -89,6 +100,18 @@ export default function Home() {
     }
   }, [isEditing]);
   
+  const createNewNote = (type: 'text' | 'drawing') => {
+    const newNote = createFreshNote(type);
+    const updatedNotes = [newNote, ...notes];
+    setNotes(updatedNotes);
+    setActiveNoteId(newNote.id);
+    saveNotes(updatedNotes, newNote.id);
+
+    if (isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.altKey) {
@@ -104,6 +127,9 @@ export default function Home() {
             nextIndex = currentIndex < notes.length - 1 ? currentIndex + 1 : 0;
           }
           setActiveNoteId(notes[nextIndex].id);
+        } else if (e.key === 'm') {
+          e.preventDefault();
+          createNewNote('text');
         }
       }
     };
@@ -125,32 +151,23 @@ export default function Home() {
       }
   };
 
-  const createNewNote = (type: 'text' | 'drawing') => {
-    const newNote: Note = {
-      id: Date.now(),
-      title: type === 'text' ? "Untitled Note" : "New Drawing",
-      type: type,
-      content: "",
-      drawing: type === 'drawing' ? emptyDrawing : ''
-    };
-    const updatedNotes = [newNote, ...notes];
-    setNotes(updatedNotes);
-    setActiveNoteId(newNote.id);
-    saveNotes(updatedNotes, newNote.id);
-
-    if (isMobileSidebarOpen) {
-        setIsMobileSidebarOpen(false);
-    }
-  };
 
   const deleteNote = (id: number) => {
-    const newNotes = notes.filter(n => n.id !== id);
-    setNotes(newNotes);
-    let newActiveId = null;
-    if (activeNoteId === id) {
+    let newNotes = notes.filter(n => n.id !== id);
+    let newActiveId: number | null = null;
+    
+    if (newNotes.length === 0) {
+      const freshNote = createFreshNote('text');
+      newNotes = [freshNote];
+      newActiveId = freshNote.id;
+    } else if (activeNoteId === id) {
       newActiveId = newNotes[0]?.id || null;
-      setActiveNoteId(newActiveId);
+    } else {
+      newActiveId = activeNoteId;
     }
+    
+    setNotes(newNotes);
+    setActiveNoteId(newActiveId);
     saveNotes(newNotes, newActiveId);
   };
 
@@ -368,7 +385,6 @@ export default function Home() {
           <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="text-xl font-bold ml-4">Notes</h1>
         </div>
         
         {isClient && activeNote ? (
@@ -412,19 +428,12 @@ export default function Home() {
             )}
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
+           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold">No note selected</h2>
-            <p className="text-muted-foreground mb-4">Create a new note or select one from the sidebar.</p>
-            <Button onClick={() => createNewNote('text')} variant="outline">
-                <Plus className="mr-2 h-4 w-4" />
-                Create a Note
-            </Button>
+            <h2 className="text-2xl font-semibold">Loading Notes...</h2>
           </div>
         )}
       </main>
     </div>
   );
 }
-
-    
