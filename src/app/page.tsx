@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, X, Brush, Type } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, X, Brush, Type, Search as SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -82,10 +82,6 @@ export default function Home() {
     return activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
   }, [notes, activeNoteId]);
 
-  const filteredNotes = useMemo(() => {
-    return notes;
-  }, [notes]);
-
   useEffect(() => {
     if (activeNoteId) {
       localStorage.setItem('lastActiveNoteId', activeNoteId.toString());
@@ -149,22 +145,25 @@ export default function Home() {
   }, [notes, activeNoteId]);
 
   const deleteNote = (id: number) => {
-    const newNotes = notes.filter(n => n.id !== id);
-    let newActiveId: number | null = activeNoteId;
+    const indexToDelete = notes.findIndex(n => n.id === id);
+    if (indexToDelete === -1) return;
 
-    if (activeNoteId === id) {
-        const currentIndexInAll = notes.findIndex(n => n.id === id);
-        if (newNotes.length > 0) {
-            const newIndex = Math.max(0, currentIndexInAll - 1);
-            newActiveId = newNotes[newIndex]?.id || (newNotes.length > 0 ? newNotes[0].id : null);
-        } else {
-            newActiveId = null;
-        }
+    const newNotes = notes.filter(n => n.id !== id);
+    let newActiveId: number | null = null;
+    
+    if (newNotes.length > 0) {
+      if (activeNoteId === id) {
+        const newIndex = Math.max(0, indexToDelete - 1);
+        newActiveId = newNotes[newIndex]?.id || newNotes[0].id;
+      } else {
+        newActiveId = activeNoteId;
+      }
     }
+    
     setNotes(newNotes);
     setActiveNoteId(newActiveId);
     saveNotes(newNotes, newActiveId);
-  };
+};
 
 
   const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
@@ -204,9 +203,12 @@ export default function Home() {
               const currentLine = lines[index];
               const isTodo = currentLine.startsWith('- [ ]') || currentLine.startsWith('- [x]');
               const newLine = isTodo ? '- [ ] ' : '';
+              
+              // Add new line after current line
               lines.splice(index + 1, 0, newLine);
               handleNoteChange('content', lines.join('\n'));
               
+              // Focus the new input
               setTimeout(() => {
                   inputRefs.current[index + 1]?.focus();
               }, 0);
@@ -215,10 +217,12 @@ export default function Home() {
 
       if (e.key === 'Backspace' && (e.target as HTMLInputElement).value === '') {
           e.preventDefault();
-          if (activeNote && index > 0) {
+          if (activeNote && activeNote.content.split('\n').length > 1) {
               let lines = activeNote.content.split('\n');
               lines.splice(index, 1);
               handleNoteChange('content', lines.join('\n'));
+              
+              // Focus previous input
               setTimeout(() => {
                   const prevInput = inputRefs.current[index - 1];
                   if (prevInput) {
@@ -285,7 +289,7 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto px-4 mt-2">
             <nav className="flex flex-col gap-1">
-                {filteredNotes.map(note => (
+                {notes.map(note => (
                     <div key={note.id} className="group relative flex items-center">
                         <Button
                             variant={activeNoteId === note.id ? "secondary" : "ghost"}
@@ -433,7 +437,7 @@ export default function Home() {
                     const isTodo = line.startsWith('- [ ]') || line.startsWith('- [x]');
                     if (isTodo) {
                       const isChecked = line.startsWith('- [x]');
-                      const text = line.substring(5);
+                      const text = line.substring(line.indexOf(']') + 2);
                       return (
                         <div key={index} className="flex items-center gap-2 mb-1">
                           <Checkbox id={`line-${index}`} checked={isChecked} onCheckedChange={() => handleCheckboxToggle(index)} />
@@ -484,3 +488,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
