@@ -36,33 +36,51 @@ export default function Home() {
   const [editorState, setEditorState] = useState(() => EditorState.createEmpty());
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   
   const { toast } = useToast();
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Ensure component only renders on client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Load notes from localStorage on initial render
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
         const savedNotes = localStorage.getItem('notes-data');
+        let notesToLoad = initialNotes;
         if (savedNotes) {
-          const parsedNotes = JSON.parse(savedNotes);
-          if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
-            setNotes(parsedNotes);
-            setActiveNoteId(parsedNotes[0].id);
-          } else {
-             setNotes(initialNotes);
-             setActiveNoteId(initialNotes[0].id);
-          }
-        } else {
-          setNotes(initialNotes);
-          setActiveNoteId(initialNotes[0].id);
+            const parsedNotes = JSON.parse(savedNotes);
+            if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
+                // Check for old format and convert
+                notesToLoad = parsedNotes.map(note => {
+                    if (typeof note.content === 'string') {
+                        return {
+                            ...note,
+                            content: convertToRaw(ContentState.createFromText(note.content))
+                        };
+                    }
+                    // This check is important to prevent crashes from malformed content
+                    if (!note.content || !note.content.blocks || !note.content.entityMap) {
+                        return {
+                            ...note,
+                            content: emptyContent
+                        }
+                    }
+                    return note;
+                });
+            }
         }
+        setNotes(notesToLoad);
+        setActiveNoteId(notesToLoad[0]?.id || null);
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
         setNotes(initialNotes);
-        setActiveNoteId(initialNotes[0].id);
+        setActiveNoteId(initialNotes[0]?.id || null);
     }
   }, []);
 
@@ -71,8 +89,14 @@ export default function Home() {
   // Load active note content into editor
   useEffect(() => {
     if (activeNote) {
-      const contentState = convertFromRaw(activeNote.content);
-      setEditorState(EditorState.createWithContent(contentState));
+      try {
+        const contentState = convertFromRaw(activeNote.content);
+        setEditorState(EditorState.createWithContent(contentState));
+      } catch (error) {
+        console.error("Failed to load content, resetting.", error)
+        const contentState = convertFromRaw(emptyContent);
+        setEditorState(EditorState.createWithContent(contentState));
+      }
     } else {
       setEditorState(EditorState.createEmpty());
     }
@@ -295,7 +319,7 @@ export default function Home() {
               placeholder="Untitled Note"
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            <Editor
+            {isClient && <Editor
                 editorState={editorState}
                 onEditorStateChange={onEditorStateChange}
                 toolbarClassName="rdw-editor-toolbar"
@@ -306,7 +330,7 @@ export default function Home() {
                     inline: { options: ['bold', 'italic', 'underline', 'strikethrough'] },
                     list: { options: ['unordered', 'ordered'] },
                 }}
-            />
+            />}
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -323,3 +347,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
