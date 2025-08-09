@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useRef, KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, KeyboardEvent, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -82,14 +82,19 @@ export default function Home() {
     }
   }, []);
 
-  const filteredNotes = searchQuery
-    ? notes.filter(note =>
-        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (note.type === 'text' && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : notes;
+  const filteredNotes = useMemo(() => {
+    if (!searchQuery) {
+      return notes;
+    }
+    return notes.filter(note =>
+      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (note.type === 'text' && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [notes, searchQuery]);
 
-  const activeNote = activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
+  const activeNote = useMemo(() => {
+    return activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
+  }, [notes, activeNoteId]);
 
 
   useEffect(() => {
