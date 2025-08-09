@@ -198,13 +198,13 @@ export default function Home() {
         {!collapsed && (
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-bold">Notes</h1>
+                     <h1 className="text-xl font-bold">Notes</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isSignedIn ? <UserButton afterSignOutUrl="/"/> : <SignInButton mode="modal"><Button size="sm" variant="ghost">Sign In</Button></SignInButton>}
-                  <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
-                      <X className="h-4 w-4"/>
-                  </Button>
+                    {isSignedIn ? <UserButton afterSignOutUrl="/"/> : <SignInButton mode="modal"><Button size="sm" variant="ghost">Sign In</Button></SignInButton>}
+                    <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
+                        <X className="h-4 w-4"/>
+                    </Button>
                 </div>
             </div>
         )}
