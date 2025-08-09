@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from 'react';
@@ -14,13 +15,12 @@ const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas'), { ssr:
 type Note = {
   id: number;
   title: string;
-  content: string | null;
+  content: string;
   drawing: string | null;
-  type: 'text' | 'drawing';
 };
 
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it or create new notes.", drawing: null, type: 'text' },
+    { id: 1, title: "Welcome!", content: "You can write notes here and draw in the canvas below. Enjoy!", drawing: '{"elements":[]}' },
 ];
 
 export default function Home() {
@@ -46,12 +46,14 @@ export default function Home() {
         if (savedNotes) {
             const parsedNotes = JSON.parse(savedNotes);
             if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
-                // Quick migration for old note format
+                // Migration for old note formats
                 notesToLoad = parsedNotes.map(note => {
-                    if (typeof note.type === 'undefined') {
-                        return { ...note, type: 'text', drawing: null };
-                    }
-                    return note;
+                    return {
+                        id: note.id,
+                        title: note.title,
+                        content: note.content || (note.type === 'text' ? '' : 'New Note'),
+                        drawing: note.drawing || (note.type === 'drawing' ? '{"elements":[]}' : null)
+                    };
                 });
             }
         }
@@ -61,7 +63,7 @@ export default function Home() {
         }
       }
     } catch (error) {
-        console.error("Failed to load data from localStorage", error);
+        console.error("Failed to load or migrate data from localStorage", error);
         setNotes(initialNotes);
         if (initialNotes.length > 0) {
           setActiveNoteId(initialNotes[0].id);
@@ -80,8 +82,7 @@ export default function Home() {
              id: Date.now(),
              title: "New Note from page",
              content: changes.newNoteContent.newValue,
-             drawing: null,
-             type: 'text',
+             drawing: '{"elements":[]}',
            };
            const updatedNotes = [newNote, ...notes];
            setNotes(updatedNotes);
@@ -99,13 +100,12 @@ export default function Home() {
             id: Date.now(),
             title: "New Note from page",
             content: data.newNoteContent,
-            drawing: null,
-            type: 'text',
+            drawing: '{"elements":[]}',
           };
           const updatedNotes = [newNote, ...notes];
           setNotes(updatedNotes);
-setActiveNoteId(newNote.id);
-saveNotes(updatedNotes);
+          setActiveNoteId(newNote.id);
+          saveNotes(updatedNotes);
           chrome.storage.local.remove("newNoteContent");
         }
       });
@@ -122,13 +122,12 @@ saveNotes(updatedNotes);
       }
   };
 
-  const createNewNote = (type: 'text' | 'drawing') => {
+  const createNewNote = () => {
     const newNote: Note = {
       id: Date.now(),
-      title: type === 'text' ? "Untitled Note" : "New Drawing",
-      content: type === 'text' ? "" : null,
-      drawing: type === 'drawing' ? '{"elements":[]}' : null,
-      type: type,
+      title: "Untitled Note",
+      content: "",
+      drawing: '{"elements":[]}',
     };
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
@@ -190,13 +189,9 @@ saveNotes(updatedNotes);
         )}
 
         <div className="px-4 flex flex-col gap-2">
-          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('text')}>
+          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={createNewNote}>
               <Plus className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
               {!collapsed && <span>New Note</span>}
-          </Button>
-          <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")} onClick={() => createNewNote('drawing')}>
-              <Brush className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
-              {!collapsed && <span>New Drawing</span>}
           </Button>
         </div>
       
@@ -214,7 +209,7 @@ saveNotes(updatedNotes);
                                 }
                             }}
                         >
-                            {note.type === 'drawing' ? <Brush className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} /> : <FileText className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />}
+                            <FileText className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
                             {!collapsed && <span className="truncate flex-1 text-left">{note.title}</span>}
                         </Button>
                          {!collapsed && (
@@ -247,16 +242,13 @@ saveNotes(updatedNotes);
                 <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)} className="mb-4">
                     <Menu className="h-5 w-5" />
                 </Button>
-                 <Button variant="ghost" size="icon" onClick={() => createNewNote('text')} className="mb-2">
+                 <Button variant="ghost" size="icon" onClick={createNewNote} className="mb-2">
                     <Plus className="h-5 w-5" />
-                </Button>
-                 <Button variant="ghost" size="icon" onClick={() => createNewNote('drawing')} className="mb-4">
-                    <Brush className="h-5 w-5" />
                 </Button>
                 <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2">
                    {notes.slice(0, 10).map(note => (
                        <Button key={note.id} variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" onClick={() => setActiveNoteId(note.id)}>
-                           {note.type === 'drawing' ? <Brush className="h-5 w-5"/> : <FileText className="h-5 w-5"/>}
+                           <FileText className="h-5 w-5"/>
                        </Button>
                    ))}
                 </div>
@@ -292,33 +284,30 @@ saveNotes(updatedNotes);
             <Input
               value={activeNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
-              placeholder={activeNote.type === 'text' ? "Untitled Note" : "New Drawing"}
+              placeholder="Untitled Note"
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            {activeNote.type === 'text' ? (
-                <Textarea
-                  value={activeNote.content || ''}
-                  onChange={(e) => handleNoteChange('content', e.target.value)}
-                  placeholder="Start writing..."
-                  className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
-                />
-            ) : (
-                activeNote.drawing && (
-                    <div className="flex-1 w-full h-full relative">
-                        <DrawingCanvas
-                            initialData={activeNote.drawing}
-                            onChange={(data) => handleNoteChange('drawing', data)}
-                        />
-                    </div>
-                )
-            )}
+            <Textarea
+              value={activeNote.content || ''}
+              onChange={(e) => handleNoteChange('content', e.target.value)}
+              placeholder="Start writing..."
+              className="text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none h-48"
+            />
+            <div className="flex-1 w-full h-full relative mt-4 min-h-[400px]">
+                {activeNote.drawing && (
+                    <DrawingCanvas
+                        initialData={activeNote.drawing}
+                        onChange={(data) => handleNoteChange('drawing', data)}
+                    />
+                )}
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold">No note selected</h2>
             <p className="text-muted-foreground mb-4">Create a new note or select one from the sidebar.</p>
-            <Button onClick={() => createNewNote('text')} variant="outline">
+            <Button onClick={createNewNote} variant="outline">
                 <Plus className="mr-2 h-4 w-4" />
                 Create a Note
             </Button>
