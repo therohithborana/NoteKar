@@ -1,40 +1,30 @@
 'use strict';
 
-const APP_URL = "https://6000-firebase-studio-1754676171861.cluster-ancjwrkgr5dvux4qug5rbzyc2y.cloudworkstations.dev/";
+const APP_URL = "https://note-kar.vercel.app/";
 let notesWindowId = null;
 
 async function toggleNotesWindow() {
-  // If the window exists, close it and clear the ID
+  // If the window exists, focus and close it.
   if (notesWindowId !== null) {
     try {
       await chrome.windows.remove(notesWindowId);
-      notesWindowId = null;
+      // The onRemoved listener will handle setting notesWindowId to null.
       return;
     } catch (error) {
-      // Window was likely closed manually, so just clear the ID
+      // The window was likely already closed, so we'll just clear the ID
+      // and proceed to create a new one.
       notesWindowId = null;
     }
   }
 
   // Get screen dimensions to position the window on the right
   try {
-    const screenInfo = await new Promise((resolve) => {
-      if (chrome.system && chrome.system.display) {
-        chrome.system.display.getInfo(resolve);
-      } else {
-        resolve(null); // Resolve with null if the API is not available
-      }
-    });
-    
-    const windowWidth = 400;
-    let left = undefined;
-    if (screenInfo && screenInfo.length > 0) {
-      const primaryDisplay = screenInfo.find(d => d.isPrimary) || screenInfo[0];
-      const screenWidth = primaryDisplay.workArea.width;
-      left = screenWidth - windowWidth;
-    }
-    
-    // If no window is open, create a new one positioned on the right
+    const [display] = await chrome.system.display.getInfo();
+    const screenWidth = display.workArea.width;
+    const windowWidth = 350;
+    const left = screenWidth - windowWidth;
+
+    // If no window is open, create a new one.
     const window = await chrome.windows.create({
       url: APP_URL,
       type: 'popup',
@@ -44,20 +34,19 @@ async function toggleNotesWindow() {
       top: 0
     });
     notesWindowId = window.id;
-  
-    // When the popup is closed by the user, reset our window ID
-    const listener = (windowId) => {
-      if (windowId === notesWindowId) {
-        notesWindowId = null;
-        chrome.windows.onRemoved.removeListener(listener); // Clean up the listener
-      }
-    };
-    chrome.windows.onRemoved.addListener(listener);
 
   } catch (error) {
-    console.error("Error creating notes window:", error);
+    console.error("Error managing notes window:", error);
   }
 }
+
+// Listener for when a window is closed.
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (windowId === notesWindowId) {
+    notesWindowId = null;
+  }
+});
+
 
 // Handle the action click (clicking the extension icon)
 chrome.action.onClicked.addListener(toggleNotesWindow);
@@ -74,6 +63,9 @@ async function addNoteFromSelection(selectionText) {
     await chrome.storage.local.set({ newNoteContent: selectionText });
     if (notesWindowId === null) {
       toggleNotesWindow();
+    } else {
+      // If window is open, focus it
+      chrome.windows.update(notesWindowId, { focused: true });
     }
 }
 

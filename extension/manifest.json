@@ -6,12 +6,11 @@
   "permissions": [
     "contextMenus",
     "storage",
-    "activeTab",
     "system.display",
     "windows"
   ],
   "action": {
-    "default_title": "Open Notes"
+    "default_title": "Toggle Notes"
   },
   "background": {
     "service_worker": "background.js"
@@ -19,7 +18,7 @@
   "commands": {
     "toggle-notes": {
       "suggested_key": {
-        "default": "Alt+Period"
+        "default": "Alt+N"
       },
       "description": "Toggle the notes panel"
     }
