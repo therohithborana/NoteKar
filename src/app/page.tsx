@@ -6,21 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Search, X, Brush } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import dynamic from 'next/dynamic';
-
-const DrawingCanvas = dynamic(() => import('@/components/DrawingCanvas'), { ssr: false });
 
 type Note = {
   id: number;
   title: string;
   content: string;
-  drawing: string;
 };
 
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: "You can write notes here and draw in the canvas below. Enjoy!", drawing: '{"elements":[]}' },
+    { id: 1, title: "Welcome!", content: "You can write notes here. Enjoy!" },
 ];
 
 export default function Home() {
@@ -58,7 +54,6 @@ export default function Home() {
         }
         setNotes(notesToLoad);
         if (notesToLoad.length > 0) {
-            // Set the active note only after notes have been loaded on the client
             setActiveNoteId(notesToLoad[0].id);
         }
       }
@@ -82,7 +77,6 @@ export default function Home() {
              id: Date.now(),
              title: "New Note from page",
              content: changes.newNoteContent.newValue,
-             drawing: '{"elements":[]}',
            };
            const updatedNotes = [newNote, ...notes];
            setNotes(updatedNotes);
@@ -100,7 +94,6 @@ export default function Home() {
             id: Date.now(),
             title: "New Note from page",
             content: data.newNoteContent,
-            drawing: '{"elements":[]}',
           };
           const updatedNotes = [newNote, ...notes];
           setNotes(updatedNotes);
@@ -127,7 +120,6 @@ export default function Home() {
       id: Date.now(),
       title: "Untitled Note",
       content: "",
-      drawing: '{"elements":[]}',
     };
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
@@ -149,7 +141,7 @@ export default function Home() {
     saveNotes(newNotes);
   };
   
-  const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
+  const handleNoteChange = (field: 'title' | 'content', value: string) => {
       if (activeNote) {
         const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
@@ -291,16 +283,8 @@ export default function Home() {
               value={activeNote.content || ''}
               onChange={(e) => handleNoteChange('content', e.target.value)}
               placeholder="Start writing..."
-              className="text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none h-48"
+              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
             />
-            <div className="flex-1 w-full h-full relative mt-4 min-h-[400px]">
-                {activeNote.drawing && (
-                    <DrawingCanvas
-                        initialData={activeNote.drawing}
-                        onChange={(data) => handleNoteChange('drawing', data)}
-                    />
-                )}
-            </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
