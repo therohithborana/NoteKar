@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -5,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Search, X, UploadCloud, DownloadCloud, LogIn, ChevronsLeft, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Search, X, UploadCloud, DownloadCloud, LogIn, LogOut, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUser, UserButton, SignInButton, useSession } from "@clerk/nextjs";
+import { useUser, UserButton, SignInButton, SignOutButton, useSession } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -157,7 +158,7 @@ export default function Home() {
   };
 
   const handleAuthError = (error: any) => {
-    const description = "Authentication failed. The app is missing permissions for Google Drive. Please sign out and sign back in, making sure to grant Google Drive access when prompted.";
+    const description = "Authentication failed. The app might be missing permissions for Google Drive. Please sign out and sign back in, ensuring you grant Google Drive access when prompted.";
     toast({ title: "Google Drive Sync Error", description, variant: "destructive" });
   };
 
@@ -179,11 +180,15 @@ export default function Home() {
       });
       const result = await response.json();
       if (!response.ok) {
+        if(response.status === 401) {
+            handleAuthError(result);
+            return;
+        }
         throw new Error(result.error || 'Failed to sync to Google Drive');
       }
       toast({ title: "Successfully synced to Google Drive!" });
     } catch (error: any) {
-      handleAuthError(error);
+       toast({ title: "An unexpected error occurred during sync.", variant: "destructive" });
     } finally {
       setIsSyncing(false);
     }
@@ -202,7 +207,11 @@ export default function Home() {
     try {
       const response = await fetch('/api/drive/refresh');
       const result = await response.json();
-      if (!response.ok) {
+       if (!response.ok) {
+        if(response.status === 401) {
+            handleAuthError(result);
+            return;
+        }
         throw new Error(result.error || 'Failed to refresh from Google Drive');
       }
       if (result.notes) {
@@ -213,7 +222,7 @@ export default function Home() {
         toast({ title: "No notes file found in Google Drive." });
       }
     } catch (error: any) {
-       handleAuthError(error);
+        toast({ title: "An unexpected error occurred during refresh.", variant: "destructive" });
     } finally {
       setIsSyncing(false);
     }
@@ -226,15 +235,22 @@ export default function Home() {
                 <FileText className="h-6 w-6"/>
                 <h1 className="text-xl font-bold">Notes</h1>
             </div>
-             <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)} className="hidden md:inline-flex">
-                <ChevronsLeft className="h-5 w-5" />
-            </Button>
             <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="md:hidden">
                 <X className="h-5 w-5" />
             </Button>
         </div>
         <div className="flex items-center gap-2">
-            {isSignedIn ? <UserButton afterSignOutUrl="/"/> : (
+            {isSignedIn ? (
+                <div className="flex w-full items-center justify-between gap-2">
+                    <UserButton afterSignOutUrl="/"/>
+                    <span className="text-sm font-semibold truncate flex-1">{user?.firstName}</span>
+                    <SignOutButton>
+                        <Button variant="ghost" size="icon">
+                            <LogOut className="h-4 w-4"/>
+                        </Button>
+                    </SignOutButton>
+                </div>
+            ) : (
               <SignInButton mode="modal">
                 <Button size="sm" variant="outline" className="w-full">
                   <LogIn className="mr-2 h-4 w-4"/>
@@ -263,7 +279,7 @@ export default function Home() {
              statusContent = (
                 <div className="flex items-center gap-2 text-yellow-500">
                     <AlertCircle className="h-4 w-4"/>
-                    <span className="text-xs font-medium">Drive access required</span>
+                    <span className="text-xs font-medium">Drive access required. Please re-login.</span>
                 </div>
             );
             break;
@@ -423,3 +439,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
