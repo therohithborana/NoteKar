@@ -451,7 +451,7 @@ export default function Home() {
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
             {activeNote.type === 'text' ? (
-                <div className="flex-1 text-base" onClick={() => setIsEditing(true)}>
+                <div className="flex-1 flex flex-col text-base" onClick={() => setIsEditing(true)}>
                 {isEditing ? (
                    <Textarea
                      ref={textareaRef}
@@ -464,10 +464,10 @@ export default function Home() {
                      onKeyDown={handleContentKeyDown}
                      onBlur={() => setIsEditing(false)}
                      placeholder="Start writing..."
-                     className="flex-1 w-full text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4 min-h-[200px]"
+                     className="flex-1 w-full text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
                    />
                 ) : (
-                    <div className="prose prose-invert max-w-none">
+                    <div className="prose prose-invert max-w-none flex-1">
                       <MarkdownRenderer content={activeNote.content || 'Start writing...'} onCheckboxToggle={handleCheckboxToggle} />
                     </div>
                 )}
@@ -492,3 +492,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
