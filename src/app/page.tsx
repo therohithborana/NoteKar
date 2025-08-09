@@ -413,7 +413,7 @@ export default function Home() {
             </SheetContent>
           </Sheet>
 
-      <main className="flex-1 flex flex-col px-4 md:px-8 pb-4 md:pb-8 overflow-hidden bg-background">
+      <main className="flex-1 flex flex-col px-6 md:px-12 pb-6 md:pb-12 overflow-hidden bg-background">
         <div className="flex items-center mb-4 md:hidden pt-4">
           <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
             <Menu className="h-6 w-6" />
@@ -429,7 +429,7 @@ export default function Home() {
               value={activeNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
               placeholder="Untitled"
-              className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
+              className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {activeNote.type === 'text' ? (
                 <div className="flex-1 flex flex-col text-base">
@@ -447,7 +447,7 @@ export default function Home() {
                             value={text}
                             onChange={(e) => handleLineChange(index, `- [${isChecked ? 'x' : ' '}] ${e.target.value}`)}
                             onKeyDown={(e) => handleKeyDownOnLine(e, index)}
-                            className={cn("flex-1 h-auto p-0 border-none bg-transparent focus:ring-0 shadow-none", isChecked && "line-through text-muted-foreground")}
+                            className={cn("flex-1 h-auto p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none", isChecked && "line-through text-muted-foreground")}
                             placeholder="To-do"
                           />
                         </div>
@@ -461,7 +461,7 @@ export default function Home() {
                           value={line}
                           onChange={(e) => handleLineChange(index, e.target.value)}
                           onKeyDown={(e) => handleKeyDownOnLine(e, index)}
-                          className="h-auto p-0 border-none bg-transparent focus:ring-0 shadow-none"
+                          className="h-auto p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
                           placeholder={index === 0 ? "Start writing..." : ""}
                         />
                     )
@@ -488,5 +488,7 @@ export default function Home() {
     </div>
   );
 }
+
+    
 
     
