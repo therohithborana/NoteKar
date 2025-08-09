@@ -201,10 +201,11 @@ export default function Home() {
                      <h1 className="text-xl font-bold">Notes</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isSignedIn ? <UserButton afterSignOutUrl="/"/> : <SignInButton mode="modal"><Button size="sm" variant="ghost">Sign In</Button></SignInButton>}
-                    <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
-                        <X className="h-4 w-4"/>
-                    </Button>
+                    {isSignedIn ? <UserButton afterSignOutUrl="/"/> : (
+                      <SignInButton mode="modal">
+                        <Button size="sm" variant="ghost">Sign In</Button>
+                      </SignInButton>
+                    )}
                 </div>
             </div>
         )}
@@ -279,6 +280,9 @@ export default function Home() {
                 <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(false)} className="mb-4">
                     <Menu className="h-5 w-5" />
                 </Button>
+                 <Button variant="ghost" size="icon" onClick={createNewNote}>
+                    <Plus className="h-4 w-4" />
+                </Button>
                 <div className="mt-auto">
                   {isSignedIn ? <UserButton /> : (
                     <SignInButton mode="modal">
@@ -310,6 +314,13 @@ export default function Home() {
           </Button>
           <h1 className="text-xl font-bold ml-4">{isSignedIn ? `${user?.firstName}'s Notes` : "Notes"}</h1>
         </div>
+        
+        <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(!isDesktopSidebarCollapsed)} className="hidden md:inline-flex">
+                <Menu className="h-5 w-5" />
+            </Button>
+        </div>
+
 
         {activeNote ? (
           <div className="flex-1 flex flex-col h-full">
