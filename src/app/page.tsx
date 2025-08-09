@@ -120,7 +120,14 @@ export default function Home() {
     const newNote = createFreshNote(type);
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
-    setFilteredNotes(updatedNotes); // Also update filtered notes
+    
+    // If there's a search query, we add the new note to the filtered list as well
+    if (searchQuery) {
+        setFilteredNotes([newNote, ...filteredNotes]);
+    } else {
+        setFilteredNotes(updatedNotes);
+    }
+
     setActiveNoteId(newNote.id);
     saveNotes(updatedNotes, newNote.id);
 
@@ -164,23 +171,38 @@ export default function Home() {
     searchDebounceTimeout.current = setTimeout(async () => {
         if (searchQuery === "") {
             setFilteredNotes(notes);
-        } else {
-            try {
-                const { noteIds } = await searchNotes({ query: searchQuery, notes });
-                const newFilteredNotes = notes.filter(note => noteIds.includes(note.id));
-                setFilteredNotes(newFilteredNotes);
-            } catch (error) {
-                console.error("Semantic search failed", error);
-                // Fallback to simple search
-                const newFilteredNotes = notes.filter(note =>
-                    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-                );
-                setFilteredNotes(newFilteredNotes);
-            }
+            return;
         }
-    }, 500);
-  }, [searchQuery, notes]);
+
+        let newFilteredNotes: Note[];
+        try {
+            const { noteIds } = await searchNotes({ query: searchQuery, notes });
+            newFilteredNotes = notes.filter(note => noteIds.includes(note.id));
+        } catch (error) {
+            console.error("Semantic search failed, falling back to simple search", error);
+            newFilteredNotes = notes.filter(note =>
+                note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+        }
+        
+        setFilteredNotes(newFilteredNotes);
+
+        // If active note is not in the new filtered list, set a new active note
+        if (newFilteredNotes.length > 0 && !newFilteredNotes.some(n => n.id === activeNoteId)) {
+            setActiveNoteId(newFilteredNotes[0].id);
+        } else if (newFilteredNotes.length === 0) {
+            setActiveNoteId(null);
+        }
+
+    }, 300);
+
+    return () => {
+        if (searchDebounceTimeout.current) {
+            clearTimeout(searchDebounceTimeout.current);
+        }
+    };
+  }, [searchQuery, notes, activeNoteId]);
 
 
   const activeNote = notes.find(n => n.id === activeNoteId);
@@ -195,23 +217,23 @@ export default function Home() {
 
   const deleteNote = (id: number) => {
     let newNotes = notes.filter(n => n.id !== id);
+    let newFiltered = filteredNotes.filter(n => n.id !== id);
     let newActiveId: number | null = null;
     
     if (newNotes.length === 0) {
       const freshNote = createFreshNote('text');
       newNotes = [freshNote];
+      newFiltered = [freshNote];
       newActiveId = freshNote.id;
     } else if (activeNoteId === id) {
-      // Find the index of the deleted note in the filtered list
       const deletedIndexInFiltered = filteredNotes.findIndex(n => n.id === id);
-      // Get the next note from the filtered list
-      newActiveId = filteredNotes[deletedIndexInFiltered + 1]?.id || filteredNotes[deletedIndexInFiltered - 1]?.id || newNotes[0]?.id || null;
+      newActiveId = newFiltered[deletedIndexInFiltered]?.id || newFiltered[deletedIndexInFiltered - 1]?.id || newNotes[0]?.id || null;
     } else {
       newActiveId = activeNoteId;
     }
     
     setNotes(newNotes);
-    setFilteredNotes(newNotes.filter(n => filteredNotes.some(fn => fn.id === n.id && n.id !== id))) // Re-filter
+    setFilteredNotes(newFiltered);
     setActiveNoteId(newActiveId);
     saveNotes(newNotes, newActiveId);
   };
@@ -220,6 +242,11 @@ export default function Home() {
       if (activeNote) {
         const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
+        
+        // Also update the note in filtered notes
+        const updatedFilteredNotes = filteredNotes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
+        setFilteredNotes(updatedFilteredNotes);
+
 
         if (debounceTimeout.current) {
             clearTimeout(debounceTimeout.current);
@@ -502,7 +529,7 @@ export default function Home() {
         </div>
         
         {activeNote ? (
-          <div className="flex-1 flex flex-col h-full overflow-y-auto">
+          <div className="flex-1 flex flex-col h-full overflow-y-auto pt-4">
             <Input
               value={activeNote.title}
               onChange={(e) => handleNoteChange('title', e.target.value)}
@@ -527,7 +554,11 @@ export default function Home() {
                    />
                 ) : (
                     <div className="prose prose-invert max-w-none flex-1">
-                      <MarkdownRenderer content={activeNote.content || 'Start writing...'} onCheckboxToggle={handleCheckboxToggle} />
+                      {activeNote.content ? (
+                        <MarkdownRenderer content={activeNote.content} onCheckboxToggle={handleCheckboxToggle} />
+                      ) : (
+                        <p className="text-muted-foreground">Start writing...</p>
+                      )}
                     </div>
                 )}
                 </div>
@@ -544,10 +575,13 @@ export default function Home() {
         ) : (
            <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold">Loading Notes...</h2>
+            <h2 className="text-2xl font-semibold">No note selected</h2>
+             <p className="text-muted-foreground">Create a new note or select one from the list.</p>
           </div>
         )}
       </main>
     </div>
   );
 }
+
+    
