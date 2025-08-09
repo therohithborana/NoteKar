@@ -1,50 +1,30 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Plus, Menu, FileText, Trash2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import dynamic from "next/dynamic";
-import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
-import { EditorState, convertToRaw, convertFromRaw, ContentState } from 'draft-js';
-import type { RawDraftContentState } from 'draft-js';
-
-const Editor = dynamic(
-  () => import("react-draft-wysiwyg").then((mod) => mod.Editor),
-  { ssr: false }
-);
 
 type Note = {
   id: number;
   title: string;
-  content: RawDraftContentState;
+  content: string;
 };
 
-const emptyContent = convertToRaw(ContentState.createFromText(''));
-
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: convertToRaw(ContentState.createFromText("This is your first note. You can edit it or create new notes.\n\n- Use the list button to create checklists.\n- Use the strikethrough button to mark items as complete.")) },
+    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it or create new notes." },
 ];
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
-  const [editorState, setEditorState] = useState(() => EditorState.createEmpty());
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   
-  const { toast } = useToast();
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-
-  // Ensure component only renders on client
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   // Load notes from localStorage on initial render
   useEffect(() => {
@@ -55,53 +35,24 @@ export default function Home() {
         if (savedNotes) {
             const parsedNotes = JSON.parse(savedNotes);
             if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
-                // Check for old format and convert
-                notesToLoad = parsedNotes.map(note => {
-                    if (typeof note.content === 'string') {
-                        return {
-                            ...note,
-                            content: convertToRaw(ContentState.createFromText(note.content))
-                        };
-                    }
-                    // This check is important to prevent crashes from malformed content
-                    if (!note.content || !note.content.blocks || !note.content.entityMap) {
-                        return {
-                            ...note,
-                            content: emptyContent
-                        }
-                    }
-                    return note;
-                });
+                notesToLoad = parsedNotes;
             }
         }
         setNotes(notesToLoad);
-        setActiveNoteId(notesToLoad[0]?.id || null);
+        if (notesToLoad.length > 0) {
+            setActiveNoteId(notesToLoad[0].id);
+        }
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
         setNotes(initialNotes);
-        setActiveNoteId(initialNotes[0]?.id || null);
+        if (initialNotes.length > 0) {
+          setActiveNoteId(initialNotes[0].id);
+        }
     }
   }, []);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
-
-  // Load active note content into editor
-  useEffect(() => {
-    if (activeNote) {
-      try {
-        const contentState = convertFromRaw(activeNote.content);
-        setEditorState(EditorState.createWithContent(contentState));
-      } catch (error) {
-        console.error("Failed to load content, resetting.", error)
-        const contentState = convertFromRaw(emptyContent);
-        setEditorState(EditorState.createWithContent(contentState));
-      }
-    } else {
-      setEditorState(EditorState.createEmpty());
-    }
-  }, [activeNoteId]);
-
 
   // Effect to handle contextual notes from extension
   useEffect(() => {
@@ -111,10 +62,12 @@ export default function Home() {
            const newNote: Note = {
              id: Date.now(),
              title: "New Note from page",
-             content: convertToRaw(ContentState.createFromText(changes.newNoteContent.newValue)),
+             content: changes.newNoteContent.newValue,
            };
-           setNotes(prevNotes => [newNote, ...prevNotes]);
+           const updatedNotes = [newNote, ...notes];
+           setNotes(updatedNotes);
            setActiveNoteId(newNote.id);
+           saveNotes(updatedNotes);
            chrome.storage.local.remove("newNoteContent");
         }
       };
@@ -126,10 +79,12 @@ export default function Home() {
           const newNote: Note = {
             id: Date.now(),
             title: "New Note from page",
-            content: convertToRaw(ContentState.createFromText(data.newNoteContent)),
+            content: data.newNoteContent,
           };
-          setNotes(prevNotes => [newNote, ...prevNotes]);
-          setActiveNoteId(newNote.id);
+          const updatedNotes = [newNote, ...notes];
+          setNotes(updatedNotes);
+setActiveNoteId(newNote.id);
+saveNotes(updatedNotes);
           chrome.storage.local.remove("newNoteContent");
         }
       });
@@ -138,7 +93,7 @@ export default function Home() {
         chrome.storage.onChanged.removeListener(handleStorageChange);
       }
     }
-  }, []);
+  }, [notes]);
 
   const saveNotes = (updatedNotes: Note[]) => {
       if (typeof window !== 'undefined') {
@@ -150,7 +105,7 @@ export default function Home() {
     const newNote: Note = {
       id: Date.now(),
       title: "Untitled Note",
-      content: emptyContent,
+      content: "",
     };
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
@@ -172,28 +127,19 @@ export default function Home() {
     saveNotes(newNotes);
   };
   
-  const handleTitleChange = (value: string) => {
+  const handleNoteChange = (field: 'title' | 'content', value: string) => {
       if (activeNote) {
-        const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, title: value} : n);
+        const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
-        saveNotes(updatedNotes);
+
+        if (debounceTimeout.current) {
+            clearTimeout(debounceTimeout.current);
+        }
+        debounceTimeout.current = setTimeout(() => {
+            saveNotes(updatedNotes);
+        }, 500);
       }
   }
-
-  const onEditorStateChange = (newEditorState: EditorState) => {
-    setEditorState(newEditorState);
-    if (debounceTimeout.current) {
-        clearTimeout(debounceTimeout.current);
-    }
-    debounceTimeout.current = setTimeout(() => {
-        if (activeNote) {
-            const content = convertToRaw(newEditorState.getCurrentContent());
-            const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, content} : n);
-            setNotes(updatedNotes);
-            saveNotes(updatedNotes);
-        }
-    }, 500);
-  };
   
   const SidebarHeader = () => (
     <div className="p-4 flex flex-col gap-4">
@@ -315,22 +261,16 @@ export default function Home() {
           <div className="flex-1 flex flex-col h-full overflow-y-auto">
             <Input
               value={activeNote.title}
-              onChange={(e) => handleTitleChange(e.target.value)}
+              onChange={(e) => handleNoteChange('title', e.target.value)}
               placeholder="Untitled Note"
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            {isClient && <Editor
-                editorState={editorState}
-                onEditorStateChange={onEditorStateChange}
-                toolbarClassName="rdw-editor-toolbar"
-                wrapperClassName="rdw-editor-wrapper flex-1 flex flex-col"
-                editorClassName="rdw-editor-main"
-                toolbar={{
-                    options: ['inline', 'blockType', 'list', 'link', 'image', 'history'],
-                    inline: { options: ['bold', 'italic', 'underline', 'strikethrough'] },
-                    list: { options: ['unordered', 'ordered'] },
-                }}
-            />}
+            <Textarea
+              value={activeNote.content}
+              onChange={(e) => handleNoteChange('content', e.target.value)}
+              placeholder="Start writing..."
+              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
+            />
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -347,5 +287,3 @@ export default function Home() {
     </div>
   );
 }
-
-    
