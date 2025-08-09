@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_URL = "https://note-kar.vercel.app/";
+const APP_URL = "https://6000-firebase-studio-1754676171861.cluster-ancjwrkgr5dvux4qug5rbzyc2y.cloudworkstations.dev/";
 let notesWindowId = null;
 
 async function toggleNotesWindow() {
