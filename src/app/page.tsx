@@ -2,6 +2,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,14 +10,17 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Plus, Menu, FileText, Trash2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
+
 type Note = {
   id: number;
   title: string;
   content: string;
+  drawing: string; // JSON string for tldraw data
 };
 
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: "You can write notes here. Enjoy!" },
+    { id: 1, title: "Welcome!", content: "You can write notes here. Enjoy!", drawing: '{"shapes":[],"bindings":{},"assets":{}}' },
 ];
 
 export default function Home() {
@@ -47,7 +51,7 @@ export default function Home() {
                         id: note.id,
                         title: note.title,
                         content: note.content || '',
-                        drawing: note.drawing || '{"elements":[]}'
+                        drawing: note.drawing || '{"shapes":[],"bindings":{},"assets":{}}'
                     };
                 });
             }
@@ -77,6 +81,7 @@ export default function Home() {
              id: Date.now(),
              title: "New Note from page",
              content: changes.newNoteContent.newValue,
+             drawing: '{"shapes":[],"bindings":{},"assets":{}}'
            };
            const updatedNotes = [newNote, ...notes];
            setNotes(updatedNotes);
@@ -94,6 +99,7 @@ export default function Home() {
             id: Date.now(),
             title: "New Note from page",
             content: data.newNoteContent,
+            drawing: '{"shapes":[],"bindings":{},"assets":{}}'
           };
           const updatedNotes = [newNote, ...notes];
           setNotes(updatedNotes);
@@ -120,6 +126,7 @@ export default function Home() {
       id: Date.now(),
       title: "Untitled Note",
       content: "",
+      drawing: '{"shapes":[],"bindings":{},"assets":{}}'
     };
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
@@ -141,7 +148,7 @@ export default function Home() {
     saveNotes(newNotes);
   };
   
-  const handleNoteChange = (field: 'title' | 'content', value: string) => {
+  const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
       if (activeNote) {
         const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
         setNotes(updatedNotes);
@@ -283,8 +290,14 @@ export default function Home() {
               value={activeNote.content || ''}
               onChange={(e) => handleNoteChange('content', e.target.value)}
               placeholder="Start writing..."
-              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none"
+              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 bg-transparent resize-none mb-4"
             />
+             <div className="relative flex-1 h-[400px] border rounded-lg overflow-hidden">
+                <TldrawCanvas
+                    initialData={activeNote.drawing}
+                    onSave={(data) => handleNoteChange('drawing', data)}
+                />
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
