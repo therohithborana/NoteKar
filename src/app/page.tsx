@@ -36,7 +36,6 @@ const createFreshNote = (type: 'text' | 'drawing'): Note => ({
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
@@ -82,16 +81,6 @@ export default function Home() {
     }
   }, []);
 
-  const filteredNotes = useMemo(() => {
-    if (!searchQuery) {
-      return notes;
-    }
-    return notes.filter(note =>
-      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (note.type === 'text' && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [notes, searchQuery]);
-
   const activeNote = useMemo(() => {
     return activeNoteId ? notes.find(n => n.id === activeNoteId) : null;
   }, [notes, activeNoteId]);
@@ -116,8 +105,8 @@ export default function Home() {
   const saveNotes = (updatedNotes: Note[], idToUpdate?: number | null) => {
       if (typeof window !== 'undefined') {
           localStorage.setItem('notes-data', JSON.stringify(updatedNotes));
-          if (idToUpdate) {
-            localStorage.setItem('lastActiveNoteId', idToUpdate.toString());
+          if (idToUpdate !== undefined) {
+            localStorage.setItem('lastActiveNoteId', idToUpdate === null ? '' : idToUpdate.toString());
           }
       }
   };
@@ -139,16 +128,16 @@ export default function Home() {
       if (e.altKey) {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
-          const currentIndex = filteredNotes.findIndex(n => n.id === activeNoteId);
+          const currentIndex = notes.findIndex(n => n.id === activeNoteId);
           if (currentIndex === -1) return;
 
           let nextIndex;
           if (e.key === 'ArrowUp') {
-            nextIndex = currentIndex > 0 ? currentIndex - 1 : filteredNotes.length - 1;
+            nextIndex = currentIndex > 0 ? currentIndex - 1 : notes.length - 1;
           } else {
-            nextIndex = currentIndex < filteredNotes.length - 1 ? currentIndex + 1 : 0;
+            nextIndex = currentIndex < notes.length - 1 ? currentIndex + 1 : 0;
           }
-          setActiveNoteId(filteredNotes[nextIndex].id);
+          setActiveNoteId(notes[nextIndex].id);
         } else if (e.key === 'm') {
           e.preventDefault();
           createNewNote('text');
@@ -160,7 +149,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [filteredNotes, activeNoteId]);
+  }, [notes, activeNoteId]);
 
   const deleteNote = (id: number) => {
     const newNotes = notes.filter(n => n.id !== id);
@@ -252,19 +241,7 @@ export default function Home() {
     <div className={cn("flex flex-col h-full bg-background text-foreground transition-all duration-300")}>
        {!collapsed ? <SidebarHeader /> : null}
 
-        {!collapsed && (
-          <div className="relative mb-2 px-4">
-              <Search className="absolute left-7 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search..." 
-                className="pl-9 bg-secondary/30"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-          </div>
-        )}
-
-        <div className="px-4 flex items-center gap-2" style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}>
+        <div className="px-4 py-2 flex items-center gap-2" style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}>
            <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -292,9 +269,9 @@ export default function Home() {
         </div>
 
 
-        <div className="flex-1 overflow-y-auto px-4 mt-4">
+        <div className="flex-1 overflow-y-auto px-4 mt-2">
             <nav className="flex flex-col gap-1">
-                {filteredNotes.map(note => (
+                {notes.map(note => (
                     <div key={note.id} className="group relative flex items-center">
                         <Button
                             variant={activeNoteId === note.id ? "secondary" : "ghost"}
@@ -417,7 +394,7 @@ export default function Home() {
                 </TooltipProvider>
 
                 <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2 w-full px-2">
-                   {filteredNotes.map(note => (
+                   {notes.map(note => (
                      <div key={note.id} className="w-full relative group">
                        <TooltipProvider>
                         <Tooltip>
@@ -513,11 +490,13 @@ export default function Home() {
         ) : (
            <div className="flex-1 flex flex-col items-center justify-center text-center">
             <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-semibold">{notes.length > 0 && searchQuery.length > 0 ? "No search results" : "Create a new note"}</h2>
-             <p className="text-muted-foreground">{notes.length > 0 && searchQuery.length > 0 ? "Try a different search term" : "There are no notes. Get started by creating one."}</p>
+            <h2 className="text-2xl font-semibold">No note selected</h2>
+             <p className="text-muted-foreground">Get started by creating a new note.</p>
           </div>
         )}
       </main>
     </div>
   );
 }
+
+    
