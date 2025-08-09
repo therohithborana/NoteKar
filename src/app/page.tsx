@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, Search, X, UploadCloud, DownloadCloud, LogIn, LogOut, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUser, UserButton, SignInButton, SignOutButton, useSession } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -19,7 +18,7 @@ type Note = {
 };
 
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it, create new notes, and sync to Google Drive after signing in." },
+    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it or create new notes." },
 ];
 
 export default function Home() {
@@ -27,29 +26,8 @@ export default function Home() {
   const [activeNote, setActiveNote] = useState<Note | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [driveStatus, setDriveStatus] = useState<'checking' | 'connected' | 'missing_permissions' | 'none'>('none');
-
-  const { isSignedIn, user } = useUser();
-  const { session } = useSession();
+  
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (isSignedIn && session) {
-      setDriveStatus('checking');
-      // This is a simplified check. A real app might make an API call to the backend
-      // to verify the token's scopes against the Google API.
-      // We are checking if the google scope for drive is present.
-      const provider = session.publicUserData?.externalAccounts?.find(a => a.provider === 'oauth_google');
-      if (provider && provider.approvedScopes.includes('https://www.googleapis.com/auth/drive.appdata')) {
-        setDriveStatus('connected');
-      } else {
-        setDriveStatus('missing_permissions');
-      }
-    } else {
-      setDriveStatus('none');
-    }
-  }, [isSignedIn, session]);
 
   // Load notes from localStorage on initial render
   useEffect(() => {
@@ -156,77 +134,6 @@ export default function Home() {
       setNotes(notes.map(n => n.id === activeNote.id ? updatedNote : n));
     }
   };
-
-  const handleAuthError = (error: any) => {
-    const description = "Authentication failed. The app might be missing permissions for Google Drive. Please sign out and sign back in, ensuring you grant Google Drive access when prompted.";
-    toast({ title: "Google Drive Sync Error", description, variant: "destructive" });
-  };
-
-  const syncToDrive = async () => {
-    if (!isSignedIn) {
-      toast({ title: "Please sign in to sync.", variant: "destructive" });
-      return;
-    }
-    if (driveStatus !== 'connected') {
-      handleAuthError(null);
-      return;
-    }
-    setIsSyncing(true);
-    try {
-      const response = await fetch('/api/drive/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        if(response.status === 401) {
-            handleAuthError(result);
-            return;
-        }
-        throw new Error(result.error || 'Failed to sync to Google Drive');
-      }
-      toast({ title: "Successfully synced to Google Drive!" });
-    } catch (error: any) {
-       toast({ title: "An unexpected error occurred during sync.", variant: "destructive" });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const refreshFromDrive = async () => {
-    if (!isSignedIn) {
-      toast({ title: "Please sign in to refresh.", variant: "destructive" });
-      return;
-    }
-     if (driveStatus !== 'connected') {
-      handleAuthError(null);
-      return;
-    }
-    setIsSyncing(true);
-    try {
-      const response = await fetch('/api/drive/refresh');
-      const result = await response.json();
-       if (!response.ok) {
-        if(response.status === 401) {
-            handleAuthError(result);
-            return;
-        }
-        throw new Error(result.error || 'Failed to refresh from Google Drive');
-      }
-      if (result.notes) {
-        setNotes(result.notes);
-        setActiveNote(result.notes[0] || null);
-        toast({ title: "Successfully refreshed from Google Drive!" });
-      } else {
-        toast({ title: "No notes file found in Google Drive." });
-      }
-    } catch (error: any) {
-        toast({ title: "An unexpected error occurred during refresh.", variant: "destructive" });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
   
   const SidebarHeader = () => (
     <div className="p-4 flex flex-col gap-4">
@@ -239,61 +146,12 @@ export default function Home() {
                 <X className="h-5 w-5" />
             </Button>
         </div>
-        <div className="flex items-center gap-2">
-            {isSignedIn ? (
-                <div className="flex w-full items-center justify-between gap-2">
-                    <UserButton afterSignOutUrl="/"/>
-                    <span className="text-sm font-semibold truncate flex-1">{user?.firstName}</span>
-                    <SignOutButton>
-                        <Button variant="ghost" size="icon">
-                            <LogOut className="h-4 w-4"/>
-                        </Button>
-                    </SignOutButton>
-                </div>
-            ) : (
-              <SignInButton mode="modal">
-                <Button size="sm" variant="outline" className="w-full">
-                  <LogIn className="mr-2 h-4 w-4"/>
-                  Sign In
-                </Button>
-              </SignInButton>
-            )}
-        </div>
     </div>
   );
-
-  const DriveStatusIndicator = () => {
-    if (!isSignedIn) return null;
-
-    let statusContent;
-    switch (driveStatus) {
-        case 'connected':
-            statusContent = (
-                <div className="flex items-center gap-2 text-green-500">
-                    <CheckCircle2 className="h-4 w-4"/>
-                    <span className="text-xs font-medium">Drive Connected</span>
-                </div>
-            );
-            break;
-        case 'missing_permissions':
-             statusContent = (
-                <div className="flex items-center gap-2 text-yellow-500">
-                    <AlertCircle className="h-4 w-4"/>
-                    <span className="text-xs font-medium">Drive access required. Please re-login.</span>
-                </div>
-            );
-            break;
-        default:
-             statusContent = <div className="h-6"></div>; // Placeholder for layout consistency
-    }
-    return <div className="px-4 pb-2">{statusContent}</div>
-  }
 
   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
     <div className={cn("flex flex-col h-full bg-background text-foreground transition-all duration-300")}>
        {!collapsed ? <SidebarHeader /> : null}
-
-        {!collapsed && <DriveStatusIndicator/>}
 
         {!collapsed && (
           <div className="relative mb-2 px-4">
@@ -337,18 +195,7 @@ export default function Home() {
         </div>
 
         <div className="mt-auto p-4">
-          {isSignedIn && !collapsed && (
-             <div className="flex flex-col gap-2">
-                 <Button variant="ghost" className="justify-start" onClick={syncToDrive} disabled={isSyncing}>
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    <span>{isSyncing ? 'Syncing...' : 'Sync to Drive'}</span>
-                 </Button>
-                 <Button variant="ghost" className="justify-start" onClick={refreshFromDrive} disabled={isSyncing}>
-                    <DownloadCloud className="mr-2 h-4 w-4" />
-                    <span>{isSyncing ? 'Refreshing...' : 'Refresh from Drive'}</span>
-                 </Button>
-             </div>
-          )}
+         
         </div>
     </div>
   );
@@ -378,11 +225,6 @@ export default function Home() {
                    ))}
                 </div>
                 <div className="mt-auto">
-                  {isSignedIn ? <UserButton /> : (
-                    <SignInButton mode="modal">
-                      <Button variant="ghost" size="icon"><LogIn/></Button>
-                    </SignInButton>
-                  )}
                 </div>
              </div>
         ) : (
@@ -406,7 +248,7 @@ export default function Home() {
           <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="text-xl font-bold ml-4">{isSignedIn ? `${user?.firstName}'s Notes` : "Notes"}</h1>
+          <h1 className="text-xl font-bold ml-4">Notes</h1>
         </div>
         
         {activeNote ? (
@@ -439,5 +281,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

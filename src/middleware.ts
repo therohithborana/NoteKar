@@ -1,8 +1,11 @@
-'use server';
-import {clerkMiddleware} from '@clerk/nextjs/server';
 
-export default clerkMiddleware();
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+ 
+export function middleware(request: NextRequest) {
+  return NextResponse.next()
+}
 
 export const config = {
-  matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
 };
