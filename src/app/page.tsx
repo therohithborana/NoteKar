@@ -401,6 +401,17 @@ export default function Home() {
     }
   };
 
+  if (!isClient) {
+    return (
+        <div className="flex h-screen dark bg-background items-center justify-center">
+             <div className="flex flex-col items-center justify-center text-center">
+                <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+                <h2 className="text-2xl font-semibold">Loading Notes...</h2>
+              </div>
+        </div>
+    );
+  }
+
   return (
     <div className="flex h-screen dark bg-background">
       {/* Desktop Sidebar */}
@@ -490,7 +501,7 @@ export default function Home() {
           </Button>
         </div>
         
-        {isClient && activeNote ? (
+        {activeNote ? (
           <div className="flex-1 flex flex-col h-full overflow-y-auto">
             <Input
               value={activeNote.title}
