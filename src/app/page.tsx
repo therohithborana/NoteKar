@@ -256,19 +256,10 @@ export default function Home() {
                 <UserButton afterSignOutUrl="/" />
              ) : (
                 <SignInButton mode="modal">
-                  <Dialog>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle className="sr-only">Sign In</DialogTitle>
-                        <DialogDescription className="sr-only">Sign in to your account to sync notes.</DialogDescription>
-                      </DialogHeader>
-                      <div/>
-                    </DialogContent>
-                    <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")}>
-                      <LogIn className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
-                      {!collapsed && <span>Sign In</span>}
-                    </Button>
-                  </Dialog>
+                  <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")}>
+                    <LogIn className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
+                    {!collapsed && <span>Sign In</span>}
+                  </Button>
                 </SignInButton>
              )}
             {!collapsed && isSignedIn && (
