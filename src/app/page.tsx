@@ -28,7 +28,7 @@ export default function Home() {
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const { toast } = useToast();
 
   // Load notes from localStorage on initial render
@@ -196,12 +196,15 @@ export default function Home() {
   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
     <div className={cn("flex flex-col h-full bg-background text-foreground p-4 transition-all duration-300")}>
         {!collapsed && (
-          <div className="flex items-center justify-between mb-4">
-              <h1 className="text-xl font-bold">Notes</h1>
-              <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
-                  <ChevronsLeft className="h-4 w-4"/>
-              </Button>
-          </div>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    {isSignedIn ? <UserButton afterSignOutUrl="/"/> : <SignInButton mode="modal"><Button size="icon" variant="ghost"><LogIn /></Button></SignInButton>}
+                    <h1 className="text-xl font-bold">{isSignedIn ? user?.firstName : 'Notes'}</h1>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsDesktopSidebarCollapsed(true)}>
+                    <ChevronsLeft className="h-4 w-4"/>
+                </Button>
+            </div>
         )}
 
         {!collapsed && (
@@ -256,23 +259,6 @@ export default function Home() {
                  </Button>
              </div>
           )}
-           <div className="flex items-center mt-4">
-             {isSignedIn ? (
-                <UserButton afterSignOutUrl="/" />
-             ) : (
-                <SignInButton mode="modal">
-                  <Button variant="outline" className={cn("w-full justify-start", collapsed && "justify-center")}>
-                    <LogIn className={cn("mr-2 h-4 w-4", collapsed && "mr-0")} />
-                    {!collapsed && <span>Sign In</span>}
-                  </Button>
-                </SignInButton>
-             )}
-            {!collapsed && isSignedIn && (
-              <span className="text-sm ml-2 text-muted-foreground truncate">
-                Signed In
-              </span>
-            )}
-           </div>
         </div>
     </div>
   );
@@ -320,7 +306,7 @@ export default function Home() {
           <Button variant="outline" size="icon" onClick={() => setIsMobileSidebarOpen(true)}>
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="text-xl font-bold ml-4">Notes</h1>
+          <h1 className="text-xl font-bold ml-4">{isSignedIn ? `${user?.firstName}'s Notes` : "Notes"}</h1>
         </div>
 
         {activeNote ? (
