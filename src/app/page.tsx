@@ -1,33 +1,44 @@
 
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Plus, Menu, FileText, Trash2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import dynamic from "next/dynamic";
+import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
+import { EditorState, convertToRaw, convertFromRaw, ContentState } from 'draft-js';
+import type { RawDraftContentState } from 'draft-js';
 
+const Editor = dynamic(
+  () => import("react-draft-wysiwyg").then((mod) => mod.Editor),
+  { ssr: false }
+);
 
 type Note = {
   id: number;
   title: string;
-  content: string;
+  content: RawDraftContentState;
 };
 
+const emptyContent = convertToRaw(ContentState.createFromText(''));
+
 const initialNotes: Note[] = [
-    { id: 1, title: "Welcome!", content: "This is your first note. You can edit it or create new notes." },
+    { id: 1, title: "Welcome!", content: convertToRaw(ContentState.createFromText("This is your first note. You can edit it or create new notes.\n\n- Use the list button to create checklists.\n- Use the strikethrough button to mark items as complete.")) },
 ];
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [activeNote, setActiveNote] = useState<Note | null>(null);
+  const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
+  const [editorState, setEditorState] = useState(() => EditorState.createEmpty());
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   
   const { toast } = useToast();
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Load notes from localStorage on initial render
   useEffect(() => {
@@ -38,29 +49,34 @@ export default function Home() {
           const parsedNotes = JSON.parse(savedNotes);
           if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
             setNotes(parsedNotes);
-            setActiveNote(parsedNotes[0]);
+            setActiveNoteId(parsedNotes[0].id);
           } else {
              setNotes(initialNotes);
-             setActiveNote(initialNotes[0]);
+             setActiveNoteId(initialNotes[0].id);
           }
         } else {
           setNotes(initialNotes);
-          setActiveNote(initialNotes[0]);
+          setActiveNoteId(initialNotes[0].id);
         }
       }
     } catch (error) {
         console.error("Failed to load data from localStorage", error);
         setNotes(initialNotes);
-        setActiveNote(initialNotes[0]);
+        setActiveNoteId(initialNotes[0].id);
     }
   }, []);
 
-  // Save notes to localStorage whenever they change
+  const activeNote = notes.find(n => n.id === activeNoteId);
+
+  // Load active note content into editor
   useEffect(() => {
-    if (typeof window !== 'undefined' && notes.length > 0) {
-      localStorage.setItem('notes-data', JSON.stringify(notes));
+    if (activeNote) {
+      const contentState = convertFromRaw(activeNote.content);
+      setEditorState(EditorState.createWithContent(contentState));
+    } else {
+      setEditorState(EditorState.createEmpty());
     }
-  }, [notes]);
+  }, [activeNoteId]);
 
 
   // Effect to handle contextual notes from extension
@@ -71,13 +87,10 @@ export default function Home() {
            const newNote: Note = {
              id: Date.now(),
              title: "New Note from page",
-             content: changes.newNoteContent.newValue,
+             content: convertToRaw(ContentState.createFromText(changes.newNoteContent.newValue)),
            };
-           setNotes(prevNotes => {
-             const updatedNotes = [newNote, ...prevNotes];
-             setActiveNote(newNote);
-             return updatedNotes;
-           });
+           setNotes(prevNotes => [newNote, ...prevNotes]);
+           setActiveNoteId(newNote.id);
            chrome.storage.local.remove("newNoteContent");
         }
       };
@@ -89,13 +102,10 @@ export default function Home() {
           const newNote: Note = {
             id: Date.now(),
             title: "New Note from page",
-            content: data.newNoteContent,
+            content: convertToRaw(ContentState.createFromText(data.newNoteContent)),
           };
-          setNotes(prevNotes => {
-            const updatedNotes = [newNote, ...prevNotes];
-            setActiveNote(newNote);
-            return updatedNotes;
-          });
+          setNotes(prevNotes => [newNote, ...prevNotes]);
+          setActiveNoteId(newNote.id);
           chrome.storage.local.remove("newNoteContent");
         }
       });
@@ -106,14 +116,23 @@ export default function Home() {
     }
   }, []);
 
+  const saveNotes = (updatedNotes: Note[]) => {
+      if (typeof window !== 'undefined') {
+          localStorage.setItem('notes-data', JSON.stringify(updatedNotes));
+      }
+  };
+
   const createNewNote = () => {
     const newNote: Note = {
       id: Date.now(),
       title: "Untitled Note",
-      content: "",
+      content: emptyContent,
     };
-    setNotes([newNote, ...notes]);
-    setActiveNote(newNote);
+    const updatedNotes = [newNote, ...notes];
+    setNotes(updatedNotes);
+    setActiveNoteId(newNote.id);
+    saveNotes(updatedNotes);
+
     if (isMobileSidebarOpen) {
         setIsMobileSidebarOpen(false);
     }
@@ -122,17 +141,34 @@ export default function Home() {
   const deleteNote = (id: number) => {
     const newNotes = notes.filter(n => n.id !== id);
     setNotes(newNotes);
-    if (activeNote?.id === id) {
-      setActiveNote(newNotes[0] || null);
+    if (activeNoteId === id) {
+      const newActiveId = newNotes[0]?.id || null;
+      setActiveNoteId(newActiveId);
     }
+    saveNotes(newNotes);
   };
+  
+  const handleTitleChange = (value: string) => {
+      if (activeNote) {
+        const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, title: value} : n);
+        setNotes(updatedNotes);
+        saveNotes(updatedNotes);
+      }
+  }
 
-  const handleNoteChange = (field: 'title' | 'content', value: string) => {
-    if (activeNote) {
-      const updatedNote = { ...activeNote, [field]: value };
-      setActiveNote(updatedNote);
-      setNotes(notes.map(n => n.id === activeNote.id ? updatedNote : n));
+  const onEditorStateChange = (newEditorState: EditorState) => {
+    setEditorState(newEditorState);
+    if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
     }
+    debounceTimeout.current = setTimeout(() => {
+        if (activeNote) {
+            const content = convertToRaw(newEditorState.getCurrentContent());
+            const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, content} : n);
+            setNotes(updatedNotes);
+            saveNotes(updatedNotes);
+        }
+    }, 500);
   };
   
   const SidebarHeader = () => (
@@ -172,10 +208,10 @@ export default function Home() {
                 {notes.map(note => (
                     <div key={note.id} className="group flex items-center">
                         <Button
-                            variant={activeNote?.id === note.id ? "secondary" : "ghost"}
+                            variant={activeNoteId === note.id ? "secondary" : "ghost"}
                             className="w-full justify-start"
                             onClick={() => {
-                                setActiveNote(note);
+                                setActiveNoteId(note.id);
                                 if (isMobileSidebarOpen) {
                                     setIsMobileSidebarOpen(false);
                                 }
@@ -219,7 +255,7 @@ export default function Home() {
                 </Button>
                 <div className="flex-1 overflow-y-auto flex flex-col items-center gap-2">
                    {notes.slice(0, 10).map(note => (
-                       <Button key={note.id} variant={activeNote?.id === note.id ? "secondary" : "ghost"} size="icon" onClick={() => setActiveNote(note)}>
+                       <Button key={note.id} variant={activeNoteId === note.id ? "secondary" : "ghost"} size="icon" onClick={() => setActiveNoteId(note.id)}>
                            <FileText className="h-5 w-5"/>
                        </Button>
                    ))}
@@ -252,18 +288,24 @@ export default function Home() {
         </div>
         
         {activeNote ? (
-          <div className="flex-1 flex flex-col h-full">
+          <div className="flex-1 flex flex-col h-full overflow-y-auto">
             <Input
               value={activeNote.title}
-              onChange={(e) => handleNoteChange('title', e.target.value)}
+              onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="Untitled Note"
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent"
             />
-            <Textarea
-              value={activeNote.content}
-              onChange={(e) => handleNoteChange('content', e.target.value)}
-              placeholder="Start writing..."
-              className="flex-1 text-base border-none focus:ring-0 shadow-none p-0 resize-none bg-transparent"
+            <Editor
+                editorState={editorState}
+                onEditorStateChange={onEditorStateChange}
+                toolbarClassName="rdw-editor-toolbar"
+                wrapperClassName="rdw-editor-wrapper flex-1 flex flex-col"
+                editorClassName="rdw-editor-main"
+                toolbar={{
+                    options: ['inline', 'blockType', 'list', 'link', 'image', 'history'],
+                    inline: { options: ['bold', 'italic', 'underline', 'strikethrough'] },
+                    list: { options: ['unordered', 'ordered'] },
+                }}
             />
           </div>
         ) : (
