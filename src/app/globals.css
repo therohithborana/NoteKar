@@ -64,7 +64,7 @@
 }
 
 .rdw-editor-toolbar {
-  @apply mb-2 rounded-md border border-border bg-transparent;
+  @apply mb-2 rounded-md border-none bg-transparent;
 }
 
 .rdw-option-wrapper {
