@@ -36,7 +36,6 @@ const createFreshNote = (type: 'text' | 'drawing'): Note => ({
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [filteredNotes, setFilteredNotes] = useState<Note[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -111,17 +110,6 @@ export default function Home() {
     const updatedNotes = [newNote, ...notes];
     setNotes(updatedNotes);
     
-    // If there's a search query, we add the new note to the filtered list as well
-    if (searchQuery) {
-        const newFiltered = updatedNotes.filter(note =>
-            note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-        );
-        setFilteredNotes(newFiltered);
-    } else {
-        setFilteredNotes(updatedNotes);
-    }
-
     setActiveNoteId(newNote.id);
     saveNotes(updatedNotes, newNote.id);
 
@@ -129,6 +117,11 @@ export default function Home() {
         setIsMobileSidebarOpen(false);
     }
   };
+  
+  const filteredNotes = notes.filter(note =>
+      note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
@@ -159,21 +152,12 @@ export default function Home() {
   }, [filteredNotes, activeNoteId]);
 
   useEffect(() => {
-    const newFilteredNotes = notes.filter(note =>
-        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-
-    setFilteredNotes(newFilteredNotes);
-
-    if (activeNoteId === null && newFilteredNotes.length > 0) {
-        setActiveNoteId(newFilteredNotes[0].id);
-    } else if (newFilteredNotes.length > 0 && !newFilteredNotes.some(n => n.id === activeNoteId)) {
-        setActiveNoteId(newFilteredNotes[0].id);
-    } else if (newFilteredNotes.length === 0) {
-        setActiveNoteId(null);
+    if (activeNoteId && !filteredNotes.some(n => n.id === activeNoteId)) {
+        setActiveNoteId(filteredNotes.length > 0 ? filteredNotes[0].id : null);
+    } else if (activeNoteId === null && filteredNotes.length > 0) {
+        setActiveNoteId(filteredNotes[0].id);
     }
-}, [searchQuery, notes]);
+  }, [searchQuery, notes]);
 
 
   const activeNote = notes.find(n => n.id === activeNoteId);
@@ -188,38 +172,22 @@ export default function Home() {
 
   const deleteNote = (id: number) => {
     const newNotes = notes.filter(n => n.id !== id);
-    let newFiltered = newNotes;
-    if (searchQuery) {
-      newFiltered = newNotes.filter(note =>
-        note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-    }
-    
     let newActiveId: number | null = null;
-    
+
     if (activeNoteId === id) {
-      if (newFiltered.length > 0) {
-        const deletedIndexInOriginal = notes.findIndex(n => n.id === id);
-        const originalIndexInFiltered = filteredNotes.findIndex(n => n.id === id);
-        
-        if (newFiltered[originalIndexInFiltered]) {
-          newActiveId = newFiltered[originalIndexInFiltered].id;
-        } else if (newFiltered[originalIndexInFiltered - 1]) {
-          newActiveId = newFiltered[originalIndexInFiltered - 1].id;
-        } else {
-           newActiveId = newFiltered[0].id;
+        const currentIndex = notes.findIndex(n => n.id === id);
+        if (newNotes.length > 0) {
+            newActiveId = newNotes[Math.max(0, currentIndex - 1)].id;
         }
-      }
     } else {
-      newActiveId = activeNoteId;
+        newActiveId = activeNoteId;
     }
-    
+
     setNotes(newNotes);
-    setFilteredNotes(newFiltered);
     setActiveNoteId(newActiveId);
     saveNotes(newNotes, newActiveId);
-  };
+};
+
 
   const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
       if (activeNote) {
