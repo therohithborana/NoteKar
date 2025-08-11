@@ -109,9 +109,10 @@ export default function Home() {
   
   const createNewNote = useCallback((type: 'text' | 'drawing') => {
     const newNote = createFreshNote(type);
-    setNotes(prev => [newNote, ...prev]);
+    const updatedNotes = [newNote, ...notes];
+    setNotes(updatedNotes);
     setActiveNoteId(newNote.id);
-    saveNotes([newNote, ...notes], newNote.id);
+    saveNotes(updatedNotes, newNote.id);
 
     if (isMobileSidebarOpen) {
         setIsMobileSidebarOpen(false);
@@ -259,18 +260,30 @@ export default function Home() {
 
       if (isBackspaceOnEmpty) {
           e.preventDefault();
-          if (activeNote && (activeNote.content.split('\n').length > 1 || isTodoLine)) {
+          if (activeNote) {
               let lines = activeNote.content.split('\n');
-              lines.splice(index, 1);
-              handleNoteChange('content', lines.join('\n'));
-              
-              setTimeout(() => {
-                  const prevInput = inputRefs.current[index - 1];
-                  if (prevInput) {
-                      prevInput.focus();
-                      prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
-                  }
-              }, 0);
+              if (isTodoLine) {
+                  // If it's a todo line, convert it to a normal text line
+                  lines[index] = '';
+                  handleNoteChange('content', lines.join('\n'));
+                  setTimeout(() => {
+                      const currentInput = inputRefs.current[index];
+                      if (currentInput) {
+                          currentInput.focus();
+                      }
+                  }, 0);
+              } else if (lines.length > 1) {
+                  // If it's a normal line and not the only line, delete it
+                  lines.splice(index, 1);
+                  handleNoteChange('content', lines.join('\n'));
+                  setTimeout(() => {
+                      const prevInput = inputRefs.current[index - 1];
+                      if (prevInput) {
+                          prevInput.focus();
+                          prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
+                      }
+                  }, 0);
+              }
           }
       }
 
