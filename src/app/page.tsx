@@ -252,7 +252,7 @@ export default function Home() {
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
                 <FileText className="h-6 w-6"/>
-                <h1 className="text-xl font-bold">Notes</h1>
+                <h1 className="text-xl font-bold">Note कर</h1>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsMobileSidebarOpen(false)} className="md:hidden">
                 <X className="h-5 w-5" />

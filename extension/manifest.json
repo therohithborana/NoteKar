@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Glass Pane Notes",
+  "name": "Note कर",
   "version": "1.0",
-  "description": "A Notion-themed notes app that can be used as a browser extension.",
+  "description": "A simple and elegant note-taking app.",
   "permissions": [
     "contextMenus",
     "storage",
