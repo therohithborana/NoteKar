@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -120,21 +119,25 @@ export default function Home() {
   
   const createNewNote = useCallback((type: 'text' | 'drawing') => {
     const newNote = createFreshNote(type);
-    const updatedNotes = [newNote, ...notes];
-    setNotes(updatedNotes);
+    setNotes(prevNotes => {
+        const updatedNotes = [newNote, ...prevNotes];
+        saveNotes(updatedNotes, newNote.id);
+        return updatedNotes;
+    });
     setActiveNoteId(newNote.id);
-    saveNotes(updatedNotes, newNote.id);
 
     if (isMobileSidebarOpen) {
         setIsMobileSidebarOpen(false);
     }
-  }, [notes, isMobileSidebarOpen]);
+  }, [isMobileSidebarOpen]);
   
   const handleNoteChange = useCallback((field: 'title' | 'content' | 'drawing', value: string) => {
-    const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
-    setNotes(updatedNotes);
-    saveNotes(updatedNotes, activeNoteId);
-  }, [activeNoteId, notes]);
+    setNotes(prevNotes => {
+        const updatedNotes = prevNotes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
+        saveNotes(updatedNotes, activeNoteId);
+        return updatedNotes;
+    });
+  }, [activeNoteId]);
 
   const addNewCheckbox = useCallback(() => {
     if (activeNote && activeNote.type === 'text') {
@@ -152,32 +155,35 @@ export default function Home() {
 
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
-      if (e.altKey) {
+      if (e.altKey && e.key === 'm') {
+          e.preventDefault();
+          createNewNote('text');
+      }
+      if (e.altKey && e.key === 'c') {
         e.preventDefault();
-        const currentIndex = notes.findIndex(n => n.id === activeNoteId);
-
-        switch (e.key) {
-          case 'ArrowUp':
-            if (currentIndex > 0) setActiveNoteId(notes[currentIndex - 1].id);
-            break;
-          case 'ArrowDown':
-            if (currentIndex < notes.length - 1) setActiveNoteId(notes[currentIndex + 1].id);
-            break;
-          case 'm':
-            createNewNote('text');
-            break;
-          case 'c':
-            addNewCheckbox();
-            break;
-        }
+        addNewCheckbox();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
+
+    const handleMessage = (message: any) => {
+        if (message.command === 'create-new-note') {
+            createNewNote('text');
+        }
+    };
+    if (window.chrome && chrome.runtime) {
+        chrome.runtime.onMessage.addListener(handleMessage);
+    }
+
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+       if (window.chrome && chrome.runtime) {
+        chrome.runtime.onMessage.removeListener(handleMessage);
+      }
     };
-  }, [notes, activeNoteId, createNewNote, addNewCheckbox]);
+  }, [createNewNote, addNewCheckbox]);
 
   const deleteNote = (id: number) => {
     const indexToDelete = notes.findIndex(n => n.id === id);
@@ -266,38 +272,40 @@ export default function Home() {
           }
       }
 
-      const isBackspaceOnEmpty = e.key === 'Backspace' && (e.target as HTMLInputElement).value === '';
-      const currentLine = lines[index];
-      const isTodoLine = currentLine?.startsWith('- [ ]') || currentLine?.startsWith('- [x]');
+      if (e.key === 'Backspace' && (e.target as HTMLInputElement).value === '') {
+        const currentLine = lines[index];
+        const isTodoLine = currentLine?.startsWith('- [ ]') || currentLine?.startsWith('- [x]');
 
-      if (isBackspaceOnEmpty && isTodoLine) {
-          e.preventDefault();
-          if (activeNote) {
-              let newLines = [...lines];
-              newLines[index] = '';
-              handleNoteChange('content', newLines.join('\n'));
-              setTimeout(() => {
-                  const currentInput = inputRefs.current[index];
-                  if (currentInput) {
-                      currentInput.focus();
-                  }
-              }, 0);
-          }
-      } else if (isBackspaceOnEmpty && lines.length > 1) {
-          e.preventDefault();
-          if (activeNote) {
-            let newLines = [...lines];
-             newLines.splice(index, 1);
-             handleNoteChange('content', newLines.join('\n'));
-             setTimeout(() => {
-                 const prevInput = inputRefs.current[index - 1];
-                 if (prevInput) {
-                     prevInput.focus();
-                     prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
-                 }
-             }, 0);
-          }
-      }
+        if (isTodoLine) {
+            e.preventDefault();
+            if (activeNote) {
+                let newLines = [...lines];
+                newLines[index] = '';
+                handleNoteChange('content', newLines.join('\n'));
+                setTimeout(() => {
+                    const currentInput = inputRefs.current[index];
+                    if (currentInput) {
+                        currentInput.focus();
+                    }
+                }, 0);
+            }
+        } else if (lines.length > 1) {
+             e.preventDefault();
+             if (activeNote) {
+               let newLines = [...lines];
+                newLines.splice(index, 1);
+                handleNoteChange('content', newLines.join('\n'));
+                setTimeout(() => {
+                    const prevInput = inputRefs.current[index - 1];
+                    if (prevInput) {
+                        prevInput.focus();
+                        prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
+                    }
+                }, 0);
+             }
+        }
+    }
+
 
        if (e.key === 'ArrowUp' && index > 0) {
             e.preventDefault();

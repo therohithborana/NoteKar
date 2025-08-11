@@ -21,6 +21,12 @@
         "default": "Alt+N"
       },
       "description": "Toggle the notes panel"
+    },
+    "create-new-note": {
+      "suggested_key": {
+        "default": "Alt+M"
+      },
+      "description": "Create a new note"
     }
   }
 }

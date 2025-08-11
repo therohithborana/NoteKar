@@ -4,27 +4,21 @@ const APP_URL = "https://note-kar.vercel.app/";
 let notesWindowId = null;
 
 async function toggleNotesWindow() {
-  // If the window exists, focus and close it.
   if (notesWindowId !== null) {
     try {
       await chrome.windows.remove(notesWindowId);
-      // The onRemoved listener will handle setting notesWindowId to null.
       return;
     } catch (error) {
-      // The window was likely already closed, so we'll just clear the ID
-      // and proceed to create a new one.
       notesWindowId = null;
     }
   }
 
-  // Get screen dimensions to position the window on the right
   try {
     const [display] = await chrome.system.display.getInfo();
     const screenWidth = display.workArea.width;
     const windowWidth = 350;
     const left = screenWidth - windowWidth;
 
-    // If no window is open, create a new one.
     const window = await chrome.windows.create({
       url: APP_URL,
       type: 'popup',
@@ -34,42 +28,47 @@ async function toggleNotesWindow() {
       top: 0
     });
     notesWindowId = window.id;
-
   } catch (error) {
     console.error("Error managing notes window:", error);
   }
 }
 
-// Listener for when a window is closed.
 chrome.windows.onRemoved.addListener((windowId) => {
   if (windowId === notesWindowId) {
     notesWindowId = null;
   }
 });
 
-
-// Handle the action click (clicking the extension icon)
 chrome.action.onClicked.addListener(toggleNotesWindow);
 
-// Handle the command (hotkey)
-chrome.commands.onCommand.addListener((command) => {
+chrome.commands.onCommand.addListener(async (command) => {
   if (command === "toggle-notes") {
-    toggleNotesWindow();
+    await toggleNotesWindow();
+  } else if (command === "create-new-note") {
+    if (notesWindowId === null) {
+      await toggleNotesWindow();
+    }
+    
+    // Give the window a moment to open and load
+    setTimeout(() => {
+        chrome.runtime.sendMessage({ command: 'create-new-note' });
+    }, 100);
+
+    if (notesWindowId !== null) {
+      chrome.windows.update(notesWindowId, { focused: true });
+    }
   }
 });
 
-// Function to add a note from selected text
 async function addNoteFromSelection(selectionText) {
     await chrome.storage.local.set({ newNoteContent: selectionText });
     if (notesWindowId === null) {
-      toggleNotesWindow();
+      await toggleNotesWindow();
     } else {
-      // If window is open, focus it
       chrome.windows.update(notesWindowId, { focused: true });
     }
 }
 
-// Context Menu Creation
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "addNote",
@@ -78,7 +77,6 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Listener for context menu click
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "addNote" && info.selectionText) {
     addNoteFromSelection(info.selectionText);
