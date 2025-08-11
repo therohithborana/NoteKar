@@ -1,15 +1,16 @@
 
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, X, Brush, Type } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, X, Brush, Type, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
 
@@ -38,6 +39,8 @@ export default function Home() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
+  const [commandMenuTarget, setCommandMenuTarget] = useState<HTMLInputElement | null>(null);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -104,46 +107,57 @@ export default function Home() {
       }
   };
   
-  const createNewNote = (type: 'text' | 'drawing') => {
+  const createNewNote = useCallback((type: 'text' | 'drawing') => {
     const newNote = createFreshNote(type);
-    const updatedNotes = [newNote, ...notes];
-    setNotes(updatedNotes);
+    setNotes(prev => [newNote, ...prev]);
     setActiveNoteId(newNote.id);
-    saveNotes(updatedNotes, newNote.id);
+    saveNotes([newNote, ...notes], newNote.id);
 
     if (isMobileSidebarOpen) {
         setIsMobileSidebarOpen(false);
     }
-  };
+  }, [notes, isMobileSidebarOpen]);
   
+  const handleNoteChange = useCallback((field: 'title' | 'content' | 'drawing', value: string) => {
+      if (activeNoteId) {
+        setNotes(prev => prev.map(n => n.id === activeNoteId ? {...n, [field]: value} : n));
+        saveNotes(notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n), activeNoteId);
+      }
+  }, [activeNoteId, notes]);
+
+  const addNewCheckbox = useCallback(() => {
+    if (activeNote && activeNote.type === 'text') {
+      const newContent = activeNote.content === '' ? '- [ ] ' : activeNote.content + '\n- [ ] ';
+      handleNoteChange('content', newContent);
+      setTimeout(() => {
+        const lines = newContent.split('\n');
+        const lastInput = inputRefs.current[lines.length - 1];
+        if (lastInput) {
+          lastInput.focus();
+        }
+      }, 0);
+    }
+  }, [activeNote, handleNoteChange]);
+
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.altKey) {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          const currentIndex = notes.findIndex(n => n.id === activeNoteId);
-          if (currentIndex === -1) return;
+        e.preventDefault();
+        const currentIndex = notes.findIndex(n => n.id === activeNoteId);
 
-          let nextIndex;
-          if (e.key === 'ArrowUp') {
-            nextIndex = currentIndex > 0 ? currentIndex - 1 : notes.length - 1;
-          } else {
-            nextIndex = currentIndex < notes.length - 1 ? currentIndex + 1 : 0;
-          }
-          setActiveNoteId(notes[nextIndex].id);
-        } else if (e.key === 'm') {
-          e.preventDefault();
-          createNewNote('text');
-        } else if (e.key === 'c') {
-          e.preventDefault();
-          if (activeNote && activeNote.type === 'text') {
-            const newContent = activeNote.content === '' ? '- [ ] ' : activeNote.content + '\n- [ ] ';
-            handleNoteChange('content', newContent);
-            setTimeout(() => {
-                const lines = newContent.split('\n');
-                inputRefs.current[lines.length - 1]?.focus();
-            }, 0);
-          }
+        switch (e.key) {
+          case 'ArrowUp':
+            if (currentIndex > 0) setActiveNoteId(notes[currentIndex - 1].id);
+            break;
+          case 'ArrowDown':
+            if (currentIndex < notes.length - 1) setActiveNoteId(notes[currentIndex + 1].id);
+            break;
+          case 'm':
+            createNewNote('text');
+            break;
+          case 'c':
+            addNewCheckbox();
+            break;
         }
       }
     };
@@ -152,7 +166,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [notes, activeNoteId, activeNote]);
+  }, [notes, activeNoteId, createNewNote, addNewCheckbox]);
 
   const deleteNote = (id: number) => {
     const indexToDelete = notes.findIndex(n => n.id === id);
@@ -176,21 +190,35 @@ export default function Home() {
 };
 
 
-  const handleNoteChange = (field: 'title' | 'content' | 'drawing', value: string) => {
-      if (activeNoteId) {
-        const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
-        setNotes(updatedNotes);
-        saveNotes(updatedNotes, activeNoteId);
-      }
-  }
-
   const handleLineChange = (index: number, newText: string) => {
     if (activeNote) {
       const lines = activeNote.content.split('\n');
       lines[index] = newText;
       handleNoteChange('content', lines.join('\n'));
+
+      if (newText.trim() === '/') {
+        setCommandMenuTarget(inputRefs.current[index]);
+        setIsCommandMenuOpen(true);
+      } else {
+        setIsCommandMenuOpen(false);
+      }
     }
   };
+  
+  const handleCommandSelect = (command: 'checkbox') => {
+      if(commandMenuTarget && activeNote) {
+        const index = inputRefs.current.findIndex(ref => ref === commandMenuTarget);
+        if(index !== -1) {
+            const lines = activeNote.content.split('\n');
+            lines[index] = '- [ ] ';
+            handleNoteChange('content', lines.join('\n'));
+            setIsCommandMenuOpen(false);
+            setTimeout(() => {
+                inputRefs.current[index]?.focus();
+            }, 0);
+        }
+      }
+  }
 
   const handleCheckboxToggle = (index: number) => {
     if (activeNote) {
@@ -210,7 +238,12 @@ export default function Home() {
           e.preventDefault();
           if (activeNote) {
               let lines = activeNote.content.split('\n');
-              const newLine = '';
+              const currentLine = lines[index];
+              let newLine = '';
+
+              if (currentLine.startsWith('- [ ] ') || currentLine.startsWith('- [x] ')) {
+                  newLine = '- [ ] ';
+              }
               
               lines.splice(index + 1, 0, newLine);
               handleNoteChange('content', lines.join('\n'));
@@ -323,7 +356,13 @@ export default function Home() {
             </nav>
         </div>
 
-        <div className="mt-auto p-4">
+        <div className="mt-auto p-4 border-t border-border/60">
+             <a href="https://x.com/therohithborana" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                     <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.602.75Zm-.86 13.028h1.36L4.323 2.145H2.865z"/>
+                 </svg>
+                 {!collapsed && <span>Made by @therohithborana</span>}
+             </a>
         </div>
     </div>
   );
@@ -399,8 +438,22 @@ export default function Home() {
                      </div>
                    ))}
                 </div>
-                <div className="mt-auto">
-                </div>
+                 <div className="mt-auto p-4 border-t border-border/60 w-full flex justify-center">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <a href="https://x.com/therohithborana" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.602.75Zm-.86 13.028h1.36L4.323 2.145H2.865z"/>
+                                    </svg>
+                                </a>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Made by @therohithborana</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                 </div>
              </div>
         ) : (
             <SidebarContent collapsed={false} />
@@ -437,41 +490,66 @@ export default function Home() {
               className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {activeNote.type === 'text' ? (
-                <div className="flex-1 flex flex-col text-base">
-                  {(activeNote.content === '' ? [''] : activeNote.content.split('\n')).map((line, index) => {
-                    const isTodo = line.startsWith('- [ ]') || line.startsWith('- [x]');
-                    if (isTodo) {
-                      const isChecked = line.startsWith('- [x]');
-                      const text = line.substring(line.indexOf(']') + 2);
-                      return (
-                        <div key={index} className="flex items-center gap-2 mb-1">
-                          <Checkbox id={`line-${index}`} checked={isChecked} onCheckedChange={() => handleCheckboxToggle(index)} />
-                          <Input
-                            ref={el => inputRefs.current[index] = el}
-                            type="text"
-                            value={text}
-                            onChange={(e) => handleLineChange(index, `- [${isChecked ? 'x' : ' '}] ${e.target.value}`)}
-                            onKeyDown={(e) => handleKeyDownOnLine(e, index)}
-                            className={cn("flex-1 h-auto p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none", isChecked && "line-through text-muted-foreground")}
-                            placeholder="To-do"
-                          />
-                        </div>
-                      )
-                    }
-                    return (
-                        <Input
-                          key={index}
-                          ref={el => inputRefs.current[index] = el}
-                          type="text"
-                          value={line}
-                          onChange={(e) => handleLineChange(index, e.target.value)}
-                          onKeyDown={(e) => handleKeyDownOnLine(e, index)}
-                          className="h-auto p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
-                          placeholder={index === 0 ? "Start writing..." : ""}
-                        />
-                    )
-                  })}
-                </div>
+                 <Popover open={isCommandMenuOpen} onOpenChange={setIsCommandMenuOpen}>
+                    <PopoverTrigger asChild>
+                        {/* Dummy trigger, popover is controlled programmatically */}
+                        <div style={{ position: 'absolute', top: commandMenuTarget?.offsetTop, left: commandMenuTarget?.offsetLeft }}></div>
+                    </PopoverTrigger>
+                    <div className="flex-1 flex flex-col text-base">
+                      {(activeNote.content === '' ? [''] : activeNote.content.split('\n')).map((line, index) => {
+                        const isTodo = line.startsWith('- [ ]') || line.startsWith('- [x]');
+                        if (isTodo) {
+                          const isChecked = line.startsWith('- [x]');
+                          const text = line.substring(line.indexOf(']') + 2);
+                          return (
+                            <div key={index} className="flex items-center gap-2 mb-1">
+                              <Checkbox id={`line-${index}`} checked={isChecked} onCheckedChange={() => handleCheckboxToggle(index)} />
+                              <Input
+                                ref={el => inputRefs.current[index] = el}
+                                type="text"
+                                value={text}
+                                onChange={(e) => handleLineChange(index, `- [${isChecked ? 'x' : ' '}] ${e.target.value}`)}
+                                onKeyDown={(e) => handleKeyDownOnLine(e, index)}
+                                className={cn("flex-1 h-auto p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none", isChecked && "line-through text-muted-foreground")}
+                                placeholder="To-do"
+                              />
+                            </div>
+                          )
+                        }
+                        return (
+                            <Input
+                              key={index}
+                              ref={el => inputRefs.current[index] = el}
+                              type="text"
+                              value={line}
+                              onChange={(e) => handleLineChange(index, e.target.value)}
+                              onKeyDown={(e) => handleKeyDownOnLine(e, index)}
+                              className="h-auto p-0 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
+                              placeholder={index === 0 ? "Start writing..." : ""}
+                            />
+                        )
+                      })}
+                    </div>
+                     <PopoverContent
+                        className="w-60 p-1"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                        side="bottom"
+                        align="start"
+                        style={{
+                            // Position the popover relative to the input that triggered it
+                            position: 'absolute',
+                            top: `${(commandMenuTarget?.offsetTop || 0) + (commandMenuTarget?.offsetHeight || 0)}px`,
+                            left: `${commandMenuTarget?.offsetLeft || 0}px`,
+                        }}
+                     >
+                       <div className="flex flex-col gap-1">
+                           <Button variant="ghost" className="w-full justify-start" onClick={() => handleCommandSelect('checkbox')}>
+                               <CheckSquare className="mr-2 h-4 w-4" />
+                               Checkbox
+                           </Button>
+                       </div>
+                    </PopoverContent>
+                </Popover>
             ) : (
                 <div className="flex-1 min-h-[400px] relative border rounded-lg overflow-hidden">
                    <TldrawCanvas
