@@ -119,10 +119,9 @@ export default function Home() {
   }, [notes, isMobileSidebarOpen]);
   
   const handleNoteChange = useCallback((field: 'title' | 'content' | 'drawing', value: string) => {
-      if (activeNoteId) {
-        setNotes(prev => prev.map(n => n.id === activeNoteId ? {...n, [field]: value} : n));
-        saveNotes(notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n), activeNoteId);
-      }
+    const updatedNotes = notes.map(n => n.id === activeNoteId ? {...n, [field]: value} : n);
+    setNotes(updatedNotes);
+    saveNotes(updatedNotes, activeNoteId);
   }, [activeNoteId, notes]);
 
   const addNewCheckbox = useCallback(() => {
@@ -196,7 +195,7 @@ export default function Home() {
       lines[index] = newText;
       handleNoteChange('content', lines.join('\n'));
 
-      if (newText.trim() === '/') {
+      if (newText.endsWith('/')) {
         setCommandMenuTarget(inputRefs.current[index]);
         setIsCommandMenuOpen(true);
       } else {
@@ -254,9 +253,13 @@ export default function Home() {
           }
       }
 
-      if (e.key === 'Backspace' && (e.target as HTMLInputElement).value === '') {
+      const isBackspaceOnEmpty = e.key === 'Backspace' && (e.target as HTMLInputElement).value === '';
+      const currentLine = activeNote?.content.split('\n')[index];
+      const isTodoLine = currentLine?.startsWith('- [ ]') || currentLine?.startsWith('- [x]');
+
+      if (isBackspaceOnEmpty) {
           e.preventDefault();
-          if (activeNote && activeNote.content.split('\n').length > 1) {
+          if (activeNote && (activeNote.content.split('\n').length > 1 || isTodoLine)) {
               let lines = activeNote.content.split('\n');
               lines.splice(index, 1);
               handleNoteChange('content', lines.join('\n'));
@@ -270,6 +273,7 @@ export default function Home() {
               }, 0);
           }
       }
+
        if (e.key === 'ArrowUp' && index > 0) {
             e.preventDefault();
             inputRefs.current[index - 1]?.focus();
@@ -492,8 +496,7 @@ export default function Home() {
             {activeNote.type === 'text' ? (
                  <Popover open={isCommandMenuOpen} onOpenChange={setIsCommandMenuOpen}>
                     <PopoverTrigger asChild>
-                        {/* Dummy trigger, popover is controlled programmatically */}
-                        <div style={{ position: 'absolute', top: commandMenuTarget?.offsetTop, left: commandMenuTarget?.offsetLeft }}></div>
+                         <div />
                     </PopoverTrigger>
                     <div className="flex-1 flex flex-col text-base">
                       {(activeNote.content === '' ? [''] : activeNote.content.split('\n')).map((line, index) => {
@@ -536,9 +539,8 @@ export default function Home() {
                         side="bottom"
                         align="start"
                         style={{
-                            // Position the popover relative to the input that triggered it
                             position: 'absolute',
-                            top: `${(commandMenuTarget?.offsetTop || 0) + (commandMenuTarget?.offsetHeight || 0)}px`,
+                            top: `${(commandMenuTarget?.offsetTop || 0) + (commandMenuTarget?.offsetHeight || 0) + 5}px`,
                             left: `${commandMenuTarget?.offsetLeft || 0}px`,
                         }}
                      >
