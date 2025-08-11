@@ -17,6 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
@@ -244,19 +245,20 @@ export default function Home() {
   };
 
   const handleKeyDownOnLine = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+      const lines = activeNote?.content.split('\n') || [];
       if (e.key === 'Enter') {
           e.preventDefault();
           if (activeNote) {
-              let lines = activeNote.content.split('\n');
-              const currentLine = lines[index];
+              let newLines = [...lines];
+              const currentLine = newLines[index];
               let newLine = '';
 
               if (currentLine.startsWith('- [ ] ') || currentLine.startsWith('- [x] ')) {
                   newLine = '- [ ] ';
               }
               
-              lines.splice(index + 1, 0, newLine);
-              handleNoteChange('content', lines.join('\n'));
+              newLines.splice(index + 1, 0, newLine);
+              handleNoteChange('content', newLines.join('\n'));
               
               setTimeout(() => {
                   inputRefs.current[index + 1]?.focus();
@@ -265,16 +267,15 @@ export default function Home() {
       }
 
       const isBackspaceOnEmpty = e.key === 'Backspace' && (e.target as HTMLInputElement).value === '';
-      const currentLine = activeNote?.content.split('\n')[index];
+      const currentLine = lines[index];
       const isTodoLine = currentLine?.startsWith('- [ ]') || currentLine?.startsWith('- [x]');
 
       if (isBackspaceOnEmpty && isTodoLine) {
           e.preventDefault();
           if (activeNote) {
-              let lines = activeNote.content.split('\n');
-              // If it's a todo line, convert it to a normal text line
-              lines[index] = '';
-              handleNoteChange('content', lines.join('\n'));
+              let newLines = [...lines];
+              newLines[index] = '';
+              handleNoteChange('content', newLines.join('\n'));
               setTimeout(() => {
                   const currentInput = inputRefs.current[index];
                   if (currentInput) {
@@ -285,10 +286,9 @@ export default function Home() {
       } else if (isBackspaceOnEmpty && lines.length > 1) {
           e.preventDefault();
           if (activeNote) {
-            let lines = activeNote.content.split('\n');
-             // If it's a normal line and not the only line, delete it
-             lines.splice(index, 1);
-             handleNoteChange('content', lines.join('\n'));
+            let newLines = [...lines];
+             newLines.splice(index, 1);
+             handleNoteChange('content', newLines.join('\n'));
              setTimeout(() => {
                  const prevInput = inputRefs.current[index - 1];
                  if (prevInput) {
@@ -303,7 +303,7 @@ export default function Home() {
             e.preventDefault();
             inputRefs.current[index - 1]?.focus();
         }
-        if (e.key === 'ArrowDown' && activeNote && index < activeNote.content.split('\n').length - 1) {
+        if (e.key === 'ArrowDown' && activeNote && index < lines.length - 1) {
             e.preventDefault();
             inputRefs.current[index + 1]?.focus();
         }
