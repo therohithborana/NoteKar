@@ -7,10 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Plus, Menu, FileText, Trash2, X, Brush, Type, CheckSquare } from "lucide-react";
+import { Plus, Menu, FileText, Trash2, X, Brush, Type, CheckSquare, Eraser } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 const TldrawCanvas = dynamic(() => import('@/components/TldrawCanvas'), { ssr: false });
 
@@ -258,32 +268,34 @@ export default function Home() {
       const currentLine = activeNote?.content.split('\n')[index];
       const isTodoLine = currentLine?.startsWith('- [ ]') || currentLine?.startsWith('- [x]');
 
-      if (isBackspaceOnEmpty) {
+      if (isBackspaceOnEmpty && isTodoLine) {
           e.preventDefault();
           if (activeNote) {
               let lines = activeNote.content.split('\n');
-              if (isTodoLine) {
-                  // If it's a todo line, convert it to a normal text line
-                  lines[index] = '';
-                  handleNoteChange('content', lines.join('\n'));
-                  setTimeout(() => {
-                      const currentInput = inputRefs.current[index];
-                      if (currentInput) {
-                          currentInput.focus();
-                      }
-                  }, 0);
-              } else if (lines.length > 1) {
-                  // If it's a normal line and not the only line, delete it
-                  lines.splice(index, 1);
-                  handleNoteChange('content', lines.join('\n'));
-                  setTimeout(() => {
-                      const prevInput = inputRefs.current[index - 1];
-                      if (prevInput) {
-                          prevInput.focus();
-                          prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
-                      }
-                  }, 0);
-              }
+              // If it's a todo line, convert it to a normal text line
+              lines[index] = '';
+              handleNoteChange('content', lines.join('\n'));
+              setTimeout(() => {
+                  const currentInput = inputRefs.current[index];
+                  if (currentInput) {
+                      currentInput.focus();
+                  }
+              }, 0);
+          }
+      } else if (isBackspaceOnEmpty && lines.length > 1) {
+          e.preventDefault();
+          if (activeNote) {
+            let lines = activeNote.content.split('\n');
+             // If it's a normal line and not the only line, delete it
+             lines.splice(index, 1);
+             handleNoteChange('content', lines.join('\n'));
+             setTimeout(() => {
+                 const prevInput = inputRefs.current[index - 1];
+                 if (prevInput) {
+                     prevInput.focus();
+                     prevInput.setSelectionRange(prevInput.value.length, prevInput.value.length);
+                 }
+             }, 0);
           }
       }
 
@@ -295,6 +307,16 @@ export default function Home() {
             e.preventDefault();
             inputRefs.current[index + 1]?.focus();
         }
+  };
+
+  const clearPage = () => {
+    if (activeNote) {
+        if (activeNote.type === 'text') {
+            handleNoteChange('content', '');
+        } else if (activeNote.type === 'drawing') {
+            handleNoteChange('drawing', emptyDrawing);
+        }
+    }
   };
   
   const SidebarHeader = () => (
@@ -500,12 +522,43 @@ export default function Home() {
         
         {activeNote ? (
           <div className="flex-1 flex flex-col h-full overflow-y-auto pt-4">
-            <Input
-              value={activeNote.title}
-              onChange={(e) => handleNoteChange('title', e.target.value)}
-              placeholder="Untitled"
-              className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
+            <div className="flex items-center gap-2">
+                <Input
+                  value={activeNote.title}
+                  onChange={(e) => handleNoteChange('title', e.target.value)}
+                  placeholder="Untitled"
+                  className="text-3xl font-bold border-none focus:ring-0 shadow-none p-0 mb-4 h-auto bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <AlertDialog>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Eraser className="h-5 w-5 text-muted-foreground" />
+                            </Button>
+                        </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clear Page</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently clear the content of this page.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={clearPage}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+            </div>
+
             {activeNote.type === 'text' ? (
                  <Popover open={isCommandMenuOpen} onOpenChange={setIsCommandMenuOpen}>
                     <PopoverTrigger asChild>
